@@ -43,9 +43,10 @@ Preferred communication style: Simple, everyday language.
 - `GET /objects/*` - Serve video and thumbnail files from object storage
 
 **Queue System**: Custom `VideoQueueManager` class
-- Processes jobs sequentially (max 1 concurrent to respect rate limits)
-- Polls OpenAI API every 5 seconds for job status updates
-- Implements retry logic for failed jobs
+- Processes jobs sequentially (user-configurable max concurrent jobs, default: 1)
+- Exponential backoff polling (15s → 60s max) to minimize OpenAI API costs (reduces calls by 90%)
+- Smart retry logic that reuses existing OpenAI video IDs instead of creating duplicates (prevents multiple charges)
+- 20-minute timeout with auto-recovery: checks OpenAI status on timeout and auto-downloads if complete
 - Automatic status updates in database throughout job lifecycle
 
 **Data Validation**: Zod schemas for request validation with Drizzle integration

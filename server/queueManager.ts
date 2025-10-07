@@ -122,72 +122,82 @@ export class VideoQueueManager {
 
     console.log(`Starting video generation for job ${jobId}`);
 
-    // If there's an input reference, download it from object storage and resize to match video dimensions
-    let inputReferenceBuffer: { buffer: Buffer; filename: string; contentType: string } | undefined;
-    if (job.inputReferenceUrl) {
-      try {
-        const objectStorage = new ObjectStorageService();
-        const file = await objectStorage.getObjectEntityFile(job.inputReferenceUrl);
-        const [metadata] = await file.getMetadata();
-        
-        // Download file to buffer
-        const chunks: Buffer[] = [];
-        const readStream = file.createReadStream();
-        
-        await new Promise<void>((resolve, reject) => {
-          readStream.on('data', (chunk: Buffer) => chunks.push(chunk));
-          readStream.on('end', () => resolve());
-          readStream.on('error', reject);
-        });
-        
-        const originalBuffer = Buffer.concat(chunks);
-        
-        // Parse video dimensions from size (e.g., "1280x720")
-        const [widthStr, heightStr] = (job.size || "1280x720").split('x');
-        const targetWidth = parseInt(widthStr);
-        const targetHeight = parseInt(heightStr);
-        
-        // Resize image to match video dimensions exactly
-        console.log(`Resizing input reference for job ${jobId} to ${targetWidth}x${targetHeight}`);
-        const resizedBuffer = await sharp(originalBuffer)
-          .resize(targetWidth, targetHeight, {
-            fit: 'fill', // Stretch to exact dimensions
-          })
-          .toBuffer();
-        
-        inputReferenceBuffer = {
-          buffer: resizedBuffer,
-          filename: metadata.name || 'reference',
-          contentType: metadata.contentType || 'application/octet-stream'
-        };
-        
-        console.log(`Resized input reference for job ${jobId}: ${metadata.name} (${targetWidth}x${targetHeight})`);
-      } catch (error) {
-        console.warn(`Could not process input reference for job ${jobId}:`, error);
-        // Continue without input reference
+    let video: any;
+
+    // CRITICAL FIX: Check if video was already created (from previous retry)
+    if (job.videoId) {
+      console.log(`Job ${jobId} already has videoId ${job.videoId}, continuing with existing video (no new charge)`);
+      video = { id: job.videoId };
+    } else {
+      // Only create a NEW video if we haven't already
+      // If there's an input reference, download it from object storage and resize to match video dimensions
+      let inputReferenceBuffer: { buffer: Buffer; filename: string; contentType: string } | undefined;
+      if (job.inputReferenceUrl) {
+        try {
+          const objectStorage = new ObjectStorageService();
+          const file = await objectStorage.getObjectEntityFile(job.inputReferenceUrl);
+          const [metadata] = await file.getMetadata();
+          
+          // Download file to buffer
+          const chunks: Buffer[] = [];
+          const readStream = file.createReadStream();
+          
+          await new Promise<void>((resolve, reject) => {
+            readStream.on('data', (chunk: Buffer) => chunks.push(chunk));
+            readStream.on('end', () => resolve());
+            readStream.on('error', reject);
+          });
+          
+          const originalBuffer = Buffer.concat(chunks);
+          
+          // Parse video dimensions from size (e.g., "1280x720")
+          const [widthStr, heightStr] = (job.size || "1280x720").split('x');
+          const targetWidth = parseInt(widthStr);
+          const targetHeight = parseInt(heightStr);
+          
+          // Resize image to match video dimensions exactly
+          console.log(`Resizing input reference for job ${jobId} to ${targetWidth}x${targetHeight}`);
+          const resizedBuffer = await sharp(originalBuffer)
+            .resize(targetWidth, targetHeight, {
+              fit: 'fill', // Stretch to exact dimensions
+            })
+            .toBuffer();
+          
+          inputReferenceBuffer = {
+            buffer: resizedBuffer,
+            filename: metadata.name || 'reference',
+            contentType: metadata.contentType || 'application/octet-stream'
+          };
+          
+          console.log(`Resized input reference for job ${jobId}: ${metadata.name} (${targetWidth}x${targetHeight})`);
+        } catch (error) {
+          console.warn(`Could not process input reference for job ${jobId}:`, error);
+          // Continue without input reference
+        }
       }
+
+      // Start video generation with OpenAI - THIS IS THE ONLY PLACE WE CREATE AND CHARGE
+      console.log(`Creating NEW video on OpenAI for job ${jobId} - THIS WILL CHARGE YOUR ACCOUNT`);
+      video = await createVideo(
+        job.prompt, 
+        job.model || "sora-2-pro", 
+        job.size || "1280x720", 
+        job.seconds || 8, 
+        inputReferenceBuffer
+      );
+      
+      // Update job with video ID and status
+      await db.update(videoJobs)
+        .set({
+          videoId: video.id,
+          status: "in_progress",
+          progress: 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(videoJobs.id, jobId));
+        
+      console.log(`Video generation started for job ${jobId}, OpenAI video ID: ${video.id}`);
     }
-
-    // Start video generation with OpenAI
-    const video = await createVideo(
-      job.prompt, 
-      job.model || "sora-2-pro", 
-      job.size || "1280x720", 
-      job.seconds || 8, 
-      inputReferenceBuffer
-    );
-    
-    // Update job with video ID and status
-    await db.update(videoJobs)
-      .set({
-        videoId: video.id,
-        status: "in_progress",
-        progress: 0,
-        updatedAt: new Date(),
-      })
-      .where(eq(videoJobs.id, jobId));
-
-    console.log(`Video generation started for job ${jobId}, OpenAI video ID: ${video.id}`);
 
     // Poll for completion with exponential backoff to reduce API costs
     let attempts = 0;
