@@ -5,6 +5,7 @@ import { createVideo, getVideoStatus, downloadVideoContent } from "./openai";
 import { ObjectStorageService } from "./objectStorage";
 import { webhookService } from "./webhookService";
 import { calculateCost } from "./costCalculator";
+import sharp from "sharp";
 
 interface QueueJob {
   id: string;
@@ -51,17 +52,26 @@ export class VideoQueueManager {
     } catch (error) {
       console.error(`Error processing job ${job.id}:`, error);
       
-      // Retry logic
-      if (job.retryCount < 2) {
+      // Don't retry on validation errors (400) - they won't succeed on retry
+      const isValidationError = error instanceof Error && 
+        (error.message.includes('400') || 
+         error.message.includes('invalid_request_error') ||
+         error.message.includes('must match'));
+      
+      // Retry logic - skip retries for validation errors
+      if (!isValidationError && job.retryCount < 2) {
         job.retryCount++;
         this.queue.push(job);
         console.log(`Job ${job.id} failed, retrying (attempt ${job.retryCount})`);
       } else {
-        // Mark as failed after retries
+        // Mark as failed after retries or on validation error
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.log(`Job ${job.id} failed permanently: ${errorMessage}`);
+        
         await db.update(videoJobs)
           .set({ 
             status: "failed", 
-            errorMessage: error instanceof Error ? error.message : "Unknown error",
+            errorMessage,
             updatedAt: new Date(),
           })
           .where(eq(videoJobs.id, job.id));
@@ -88,7 +98,7 @@ export class VideoQueueManager {
 
     console.log(`Starting video generation for job ${jobId}`);
 
-    // If there's an input reference, download it from object storage to pass to OpenAI
+    // If there's an input reference, download it from object storage and resize to match video dimensions
     let inputReferenceBuffer: { buffer: Buffer; filename: string; contentType: string } | undefined;
     if (job.inputReferenceUrl) {
       try {
@@ -106,17 +116,30 @@ export class VideoQueueManager {
           readStream.on('error', reject);
         });
         
-        const buffer = Buffer.concat(chunks);
+        const originalBuffer = Buffer.concat(chunks);
+        
+        // Parse video dimensions from size (e.g., "1280x720")
+        const [widthStr, heightStr] = (job.size || "1280x720").split('x');
+        const targetWidth = parseInt(widthStr);
+        const targetHeight = parseInt(heightStr);
+        
+        // Resize image to match video dimensions exactly
+        console.log(`Resizing input reference for job ${jobId} to ${targetWidth}x${targetHeight}`);
+        const resizedBuffer = await sharp(originalBuffer)
+          .resize(targetWidth, targetHeight, {
+            fit: 'fill', // Stretch to exact dimensions
+          })
+          .toBuffer();
         
         inputReferenceBuffer = {
-          buffer,
+          buffer: resizedBuffer,
           filename: metadata.name || 'reference',
           contentType: metadata.contentType || 'application/octet-stream'
         };
         
-        console.log(`Downloaded input reference for job ${jobId}: ${metadata.name}`);
+        console.log(`Resized input reference for job ${jobId}: ${metadata.name} (${targetWidth}x${targetHeight})`);
       } catch (error) {
-        console.warn(`Could not download input reference for job ${jobId}:`, error);
+        console.warn(`Could not process input reference for job ${jobId}:`, error);
         // Continue without input reference
       }
     }
