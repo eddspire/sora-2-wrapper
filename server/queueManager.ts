@@ -41,6 +41,11 @@ export class VideoQueueManager {
     }
   }
 
+  // Public method to reload settings (called after settings update)
+  async reloadSettings() {
+    await this.loadSettings();
+  }
+
   async addToQueue(jobId: string) {
     this.queue.push({ id: jobId, retryCount: 0 });
     console.log(`Job ${jobId} added to queue. Queue length: ${this.queue.length}`);

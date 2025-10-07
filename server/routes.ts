@@ -4,7 +4,7 @@ import multer from "multer";
 import { storage } from "./storage";
 import { queueManager } from "./queueManager";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertVideoJobSchema, insertWebhookSchema } from "@shared/schema";
+import { insertVideoJobSchema, insertWebhookSchema, updateSettingsSchema } from "@shared/schema";
 import { z } from "zod";
 
 // Configure multer for file uploads (memory storage)
@@ -263,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update or create a setting
+  // Update or create a setting (individual setting by key)
   app.put("/api/settings/:key", async (req, res) => {
     try {
       const { value, description } = req.body;
@@ -272,6 +272,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating setting:", error);
       res.status(500).json({ error: "Failed to update setting" });
+    }
+  });
+
+  // Update multiple settings at once
+  app.put("/api/settings", async (req, res) => {
+    try {
+      // Validate settings using shared schema
+      const validated = updateSettingsSchema.parse(req.body);
+      const updatedSettings: any[] = [];
+
+      // Update maxConcurrentJobs
+      const setting = await storage.upsertSetting(
+        "maxConcurrentJobs",
+        validated.maxConcurrentJobs,
+        "Maximum number of concurrent video generation jobs"
+      );
+      updatedSettings.push(setting);
+      
+      // Reload queue manager settings immediately
+      await queueManager.reloadSettings();
+
+      res.json({ 
+        success: true,
+        settings: updatedSettings 
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error updating settings:", error);
+      res.status(500).json({ error: "Failed to update settings" });
     }
   });
 

@@ -1,6 +1,7 @@
-import { Video, Circle, Settings } from "lucide-react";
+import { Video, Circle, Settings, Webhook } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { SettingsDialog } from "@/components/SettingsDialog";
 
 interface HeaderProps {
   apiStatus?: "connected" | "disconnected";
@@ -33,10 +34,12 @@ export function Header({ apiStatus = "connected" }: HeaderProps) {
                 size="sm"
                 className="gap-2"
               >
-                <Settings className="h-4 w-4" />
+                <Webhook className="h-4 w-4" />
                 Webhooks
               </Button>
             </Link>
+            
+            <SettingsDialog />
             
             <div className="flex items-center gap-2">
               <Circle

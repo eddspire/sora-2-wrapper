@@ -85,6 +85,20 @@ export const insertSettingSchema = createInsertSchema(settings).pick({
   description: z.string().optional(),
 });
 
+// Settings update schema (for updating multiple settings at once)
+export const updateSettingsSchema = z.object({
+  maxConcurrentJobs: z.string()
+    .min(1, "Max concurrent jobs is required")
+    .refine(
+      (val) => {
+        const num = parseInt(val, 10);
+        return !isNaN(num) && num >= 1;
+      },
+      { message: "Max concurrent jobs must be at least 1" }
+    ),
+});
+
 // Setting types
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
+export type UpdateSettings = z.infer<typeof updateSettingsSchema>;
 export type Setting = typeof settings.$inferSelect;
