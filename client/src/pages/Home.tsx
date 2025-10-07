@@ -91,13 +91,13 @@ export default function Home() {
     },
   });
 
-  const handleSubmit = (prompt: string, model: string) => {
+  const handleSubmit = (prompt: string, model: string, duration: string, size: string) => {
     setIsGenerating(true);
     createVideoMutation.mutate({
       prompt,
       model,
-      size: "1280x720",
-      seconds: "8",
+      size,
+      seconds: duration,
     });
   };
 

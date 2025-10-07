@@ -173,7 +173,19 @@ export function VideoCard({ job, onRetry, onDownload, onDelete }: VideoCardProps
         </div>
 
         <div className="text-xs text-muted-foreground font-mono">
-          {job.size} • {job.seconds}s duration
+          {(() => {
+            // Calculate aspect ratio from size
+            const sizeMatch = job.size?.match(/^(\d+)x(\d+)$/);
+            if (sizeMatch) {
+              const width = parseInt(sizeMatch[1]);
+              const height = parseInt(sizeMatch[2]);
+              const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+              const divisor = gcd(width, height);
+              const ratio = `${width/divisor}:${height/divisor}`;
+              return `${ratio} ${job.size}`;
+            }
+            return job.size;
+          })()} • {job.seconds}s
         </div>
       </div>
     </div>
