@@ -28,13 +28,18 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        await queryClient.invalidateQueries({ queryKey: ["/api/auth/status"] });
-        await queryClient.refetchQueries({ queryKey: ["/api/auth/status"] });
+        // Set the auth status directly in the cache to ensure immediate update
+        queryClient.setQueryData(["/api/auth/status"], { authenticated: true });
+        
         toast({
           title: "Welcome!",
           description: "Authentication successful",
         });
-        setLocation("/");
+        
+        // Use a small delay to ensure React Query cache is properly updated
+        setTimeout(() => {
+          setLocation("/");
+        }, 100);
       } else {
         toast({
           title: "Authentication failed",
