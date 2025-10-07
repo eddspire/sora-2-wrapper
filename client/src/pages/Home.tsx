@@ -1,16 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Header } from "@/components/Header";
 import { PromptInput } from "@/components/PromptInput";
 import { QueueDashboard } from "@/components/QueueDashboard";
 import { VideoGrid } from "@/components/VideoGrid";
+import { FilterBar } from "@/components/FilterBar";
 import { useToast } from "@/hooks/use-toast";
 import type { VideoJob, InsertVideoJob } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Fetch all video jobs
   const { data: jobs = [], isLoading } = useQuery<VideoJob[]>({
@@ -18,7 +21,27 @@ export default function Home() {
     refetchInterval: 3000, // Poll every 3 seconds for updates
   });
 
-  // Calculate queue statistics
+  // Filter jobs based on search and status
+  const filteredJobs = useMemo(() => {
+    let filtered = jobs;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(job =>
+        job.prompt.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(job => job.status === statusFilter);
+    }
+
+    return filtered;
+  }, [jobs, searchQuery, statusFilter]);
+
+  // Calculate queue statistics (from all jobs, not filtered)
   const stats = {
     queued: jobs.filter(j => j.status === "queued").length,
     processing: jobs.filter(j => j.status === "in_progress").length,
@@ -196,8 +219,14 @@ export default function Home() {
           isLoading={isGenerating} 
         />
         <QueueDashboard stats={stats} />
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+        />
         <VideoGrid
-          jobs={jobs}
+          jobs={filteredJobs}
           onRetry={handleRetry}
           onDownload={handleDownload}
           onDelete={handleDelete}
