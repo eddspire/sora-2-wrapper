@@ -7,6 +7,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertVideoJobSchema, insertWebhookSchema, updateSettingsSchema } from "@shared/schema";
 import { z } from "zod";
 import { enhancePrompt } from "./promptEnhancer";
+import { requireAuth, verifyPassword } from "./auth";
 
 // Configure multer for file uploads (memory storage)
 const upload = multer({ 
@@ -15,6 +16,45 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Authentication endpoints (public)
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password) {
+        return res.status(400).json({ error: "Password is required" });
+      }
+      
+      if (verifyPassword(password)) {
+        req.session.authenticated = true;
+        return res.json({ success: true, message: "Authentication successful" });
+      } else {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+  
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true, message: "Logged out successfully" });
+    });
+  });
+  
+  app.get("/api/auth/status", (req, res) => {
+    res.json({ authenticated: req.session?.authenticated === true });
+  });
+  
+  // Protected routes - all API routes below require authentication
+  app.use("/api", requireAuth);
   
   // Create a new video job
   app.post("/api/videos", async (req, res) => {
