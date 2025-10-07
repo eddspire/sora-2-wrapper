@@ -91,11 +91,11 @@ export default function Home() {
     },
   });
 
-  const handleSubmit = (prompt: string) => {
+  const handleSubmit = (prompt: string, model: string) => {
     setIsGenerating(true);
     createVideoMutation.mutate({
       prompt,
-      model: "sora-2-pro",
+      model,
       size: "1280x720",
       seconds: "8",
     });

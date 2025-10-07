@@ -1,4 +1,4 @@
-import { Download, RefreshCw, Loader2, Trash2 } from "lucide-react";
+import { Download, RefreshCw, Loader2, Trash2, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { VideoJob } from "@shared/schema";
@@ -103,12 +103,29 @@ export function VideoCard({ job, onRetry, onDownload, onDelete }: VideoCardProps
         </p>
         
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge
               data-testid={`badge-status-${job.id}`}
               className={`${config.color} border rounded-full px-3 py-1 text-xs font-medium`}
             >
               {config.label}
+            </Badge>
+            <Badge
+              data-testid={`badge-model-${job.id}`}
+              variant="outline"
+              className="rounded-full px-3 py-1 text-xs font-medium gap-1"
+            >
+              {job.model === "sora-2-pro" ? (
+                <>
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  <span>Pro</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="h-3 w-3 text-warning" />
+                  <span>Fast</span>
+                </>
+              )}
             </Badge>
             <span className="text-xs text-muted-foreground font-mono">
               {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
@@ -155,11 +172,9 @@ export function VideoCard({ job, onRetry, onDownload, onDelete }: VideoCardProps
           </div>
         </div>
 
-        {job.status === "in_progress" && (
-          <div className="text-xs text-muted-foreground font-mono">
-            Model: {job.model} • {job.size} • {job.seconds}s
-          </div>
-        )}
+        <div className="text-xs text-muted-foreground font-mono">
+          {job.size} • {job.seconds}s duration
+        </div>
       </div>
     </div>
   );
