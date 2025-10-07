@@ -14,6 +14,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [remixJob, setRemixJob] = useState<VideoJob | null>(null);
 
   // Fetch all video jobs
   const { data: jobs = [], isLoading } = useQuery<VideoJob[]>({
@@ -57,10 +58,14 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
       toast({
-        title: "Video job created",
-        description: "Your video is now in the generation queue",
+        title: remixJob ? "Remix created" : "Video job created",
+        description: remixJob ? "Your remixed video is now in the queue" : "Your video is now in the generation queue",
       });
       setIsGenerating(false);
+      // Clear remix state after successful submission
+      if (remixJob) {
+        setRemixJob(null);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -208,6 +213,31 @@ export default function Home() {
     }
   };
 
+  const handleRegenerate = (job: VideoJob) => {
+    setIsGenerating(true);
+    createVideoMutation.mutate({
+      prompt: job.prompt,
+      model: job.model,
+      size: job.size,
+      seconds: job.seconds,
+    });
+    
+    toast({
+      title: "Regenerating video",
+      description: "Creating a new version with the same parameters",
+    });
+  };
+
+  const handleRemix = (job: VideoJob) => {
+    setRemixJob(job);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    toast({
+      title: "Ready to remix",
+      description: "Modify the parameters and submit to create a variation",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header apiStatus="connected" />
@@ -216,7 +246,9 @@ export default function Home() {
         <PromptInput 
           onSubmit={handleSubmit} 
           onBatchSubmit={handleBatchSubmit}
-          isLoading={isGenerating} 
+          isLoading={isGenerating}
+          remixJob={remixJob}
+          onRemixClear={() => setRemixJob(null)}
         />
         <QueueDashboard stats={stats} />
         <FilterBar
@@ -230,6 +262,8 @@ export default function Home() {
           onRetry={handleRetry}
           onDownload={handleDownload}
           onDelete={handleDelete}
+          onRegenerate={handleRegenerate}
+          onRemix={handleRemix}
           isLoading={isLoading}
         />
       </main>

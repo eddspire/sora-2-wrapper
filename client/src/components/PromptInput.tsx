@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2, List } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2, List, Wand2, X } from "lucide-react";
+import type { VideoJob } from "@shared/schema";
 
 interface PromptInputProps {
   onSubmit: (prompt: string, model: string, duration: string, aspectRatio: string) => void;
   onBatchSubmit?: (prompts: string[], model: string, duration: string, aspectRatio: string) => void;
   isLoading?: boolean;
+  remixJob?: VideoJob | null;
+  onRemixClear?: () => void;
 }
 
 const ASPECT_RATIOS = {
@@ -24,7 +28,7 @@ const DURATIONS = [
   { value: "10", label: "10 seconds" },
 ] as const;
 
-export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false }: PromptInputProps) {
+export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJob, onRemixClear }: PromptInputProps) {
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [prompt, setPrompt] = useState("");
   const [batchPrompts, setBatchPrompts] = useState("");
@@ -33,11 +37,39 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false }: Prom
   const [aspectRatio, setAspectRatio] = useState<keyof typeof ASPECT_RATIOS>("16:9");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Pre-fill form when remixing or clear when remix is cancelled
+  useEffect(() => {
+    if (remixJob) {
+      setPrompt(remixJob.prompt);
+      setModel(remixJob.model);
+      setDuration(remixJob.seconds);
+      
+      // Find matching aspect ratio from size
+      const sizeMatch = remixJob.size?.match(/^(\d+)x(\d+)$/);
+      if (sizeMatch) {
+        const width = parseInt(sizeMatch[1]);
+        const height = parseInt(sizeMatch[2]);
+        if (width === 1280 && height === 720) setAspectRatio("16:9");
+        else if (width === 720 && height === 1280) setAspectRatio("9:16");
+        else if (width === 1024 && height === 1024) setAspectRatio("1:1");
+      }
+      
+      setMode("single");
+      setShowAdvanced(true);
+    } else {
+      // Clear prompt when remix is cancelled (but not on initial load)
+      setPrompt("");
+    }
+  }, [remixJob]);
+
   const handleSubmit = () => {
     if (mode === "single") {
       if (prompt.trim().length >= 10) {
         onSubmit(prompt.trim(), model, duration, ASPECT_RATIOS[aspectRatio].size);
-        setPrompt("");
+        // Only clear prompt if not remixing (remix will be cleared by parent on success)
+        if (!remixJob) {
+          setPrompt("");
+        }
       }
     } else {
       // Batch mode - validate and filter prompts
@@ -77,6 +109,26 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false }: Prom
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 md:px-8 py-8">
+      {/* Remix Alert */}
+      {remixJob && (
+        <Alert className="mb-4 bg-primary/10 border-primary/30">
+          <Wand2 className="h-4 w-4 text-primary" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Remixing video - Modify parameters and submit to create a variation</span>
+            <Button
+              data-testid="button-clear-remix"
+              size="sm"
+              variant="ghost"
+              onClick={onRemixClear}
+              className="gap-1 h-6"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="bg-card border border-card-border rounded-xl p-6 transition-all duration-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
         {/* Mode Toggle */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "batch")} className="mb-4">
@@ -85,7 +137,7 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false }: Prom
               <Send className="h-4 w-4 mr-2" />
               Single
             </TabsTrigger>
-            <TabsTrigger value="batch" data-testid="tab-batch">
+            <TabsTrigger value="batch" data-testid="tab-batch" disabled={!!remixJob}>
               <List className="h-4 w-4 mr-2" />
               Batch
             </TabsTrigger>

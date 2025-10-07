@@ -7,10 +7,12 @@ interface VideoGridProps {
   onRetry?: (id: string) => void;
   onDownload?: (url: string, id: string) => void;
   onDelete?: (id: string) => void;
+  onRegenerate?: (job: VideoJob) => void;
+  onRemix?: (job: VideoJob) => void;
   isLoading?: boolean;
 }
 
-export function VideoGrid({ jobs, onRetry, onDownload, onDelete, isLoading }: VideoGridProps) {
+export function VideoGrid({ jobs, onRetry, onDownload, onDelete, onRegenerate, onRemix, isLoading }: VideoGridProps) {
   if (isLoading) {
     return (
       <div className="w-full max-w-7xl mx-auto px-6 md:px-8 py-8">
@@ -51,6 +53,8 @@ export function VideoGrid({ jobs, onRetry, onDownload, onDelete, isLoading }: Vi
             onRetry={onRetry}
             onDownload={onDownload}
             onDelete={onDelete}
+            onRegenerate={onRegenerate}
+            onRemix={onRemix}
           />
         ))}
       </div>

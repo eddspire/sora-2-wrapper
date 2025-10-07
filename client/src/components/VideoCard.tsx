@@ -1,4 +1,4 @@
-import { Download, RefreshCw, Loader2, Trash2, Sparkles, Zap } from "lucide-react";
+import { Download, RefreshCw, Loader2, Trash2, Sparkles, Zap, Copy, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { VideoJob } from "@shared/schema";
@@ -9,9 +9,11 @@ interface VideoCardProps {
   onRetry?: (id: string) => void;
   onDownload?: (url: string, id: string) => void;
   onDelete?: (id: string) => void;
+  onRegenerate?: (job: VideoJob) => void;
+  onRemix?: (job: VideoJob) => void;
 }
 
-export function VideoCard({ job, onRetry, onDownload, onDelete }: VideoCardProps) {
+export function VideoCard({ job, onRetry, onDownload, onDelete, onRegenerate, onRemix }: VideoCardProps) {
   const statusConfig = {
     queued: { color: "bg-warning/20 text-warning border-warning/30", label: "Queued" },
     in_progress: { color: "bg-primary/20 text-primary border-primary/30", label: "Processing" },
@@ -132,7 +134,7 @@ export function VideoCard({ job, onRetry, onDownload, onDelete }: VideoCardProps
             </span>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {job.status === "failed" && onRetry && (
               <Button
                 data-testid={`button-retry-${job.id}`}
@@ -145,17 +147,45 @@ export function VideoCard({ job, onRetry, onDownload, onDelete }: VideoCardProps
                 Retry
               </Button>
             )}
-            {job.status === "completed" && job.videoUrl && onDownload && (
-              <Button
-                data-testid={`button-download-${job.id}`}
-                size="sm"
-                variant="outline"
-                onClick={() => onDownload(job.videoUrl!, job.id)}
-                className="gap-1"
-              >
-                <Download className="h-3 w-3" />
-                Download
-              </Button>
+            {job.status === "completed" && (
+              <>
+                {onRegenerate && (
+                  <Button
+                    data-testid={`button-regenerate-${job.id}`}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onRegenerate(job)}
+                    className="gap-1"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Regenerate
+                  </Button>
+                )}
+                {onRemix && (
+                  <Button
+                    data-testid={`button-remix-${job.id}`}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onRemix(job)}
+                    className="gap-1"
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    Remix
+                  </Button>
+                )}
+                {job.videoUrl && onDownload && (
+                  <Button
+                    data-testid={`button-download-${job.id}`}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDownload(job.videoUrl!, job.id)}
+                    className="gap-1"
+                  >
+                    <Download className="h-3 w-3" />
+                    Download
+                  </Button>
+                )}
+              </>
             )}
             {onDelete && (job.status === "completed" || job.status === "failed") && (
               <Button
