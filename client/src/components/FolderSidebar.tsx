@@ -87,6 +87,48 @@ export function FolderSidebar({
     const isSelected = selectedFolderId === node.folder.id;
     const hasChildren = node.children.length > 0;
 
+    // Collapsed view - just show icon
+    if (isCollapsed) {
+      return (
+        <div key={node.folder.id}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={`flex items-center justify-center px-2 py-3 rounded-xl cursor-pointer transition-all ${
+                  isSelected 
+                    ? "bg-gradient-to-r from-cyan-500/20 to-violet-500/20 border border-cyan-500/30" 
+                    : "hover:bg-gray-800/50 border border-transparent"
+                }`}
+                onClick={() => onSelectFolder(node.folder.id)}
+                data-testid={`folder-item-${node.folder.id}`}
+              >
+                {isExpanded && hasChildren ? (
+                  <FolderOpen 
+                    className="h-4 w-4 shrink-0" 
+                    style={{ color: node.folder.color || '#06b6d4' }} 
+                  />
+                ) : (
+                  <Folder 
+                    className="h-4 w-4 shrink-0" 
+                    style={{ color: node.folder.color || '#06b6d4' }} 
+                  />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+              <div className="flex items-center gap-2">
+                {node.folder.name}
+                {node.videoCount > 0 && (
+                  <span className="text-xs text-cyan-400">({node.videoCount})</span>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      );
+    }
+
+    // Expanded view - show full folder
     return (
       <div key={node.folder.id}>
         <div
@@ -336,16 +378,14 @@ export function FolderSidebar({
               </Tooltip>
             )}
 
-            {!isCollapsed && folderTree.length > 0 && (
+            {folderTree.length > 0 && (
               <div className="my-3 border-t border-gray-700/30" />
             )}
 
             {/* User Folders */}
-            {!isCollapsed && (
-              <div className="space-y-1">
-                {folderTree.map((node) => renderFolderNode(node))}
-              </div>
-            )}
+            <div className="space-y-1">
+              {folderTree.map((node) => renderFolderNode(node))}
+            </div>
           </div>
         </ScrollArea>
 
