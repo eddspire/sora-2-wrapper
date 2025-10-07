@@ -115,7 +115,7 @@ export function FolderSidebar({
                 )}
               </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+            <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white z-[100]">
               <div className="flex items-center gap-2">
                 {node.folder.name}
                 {node.videoCount > 0 && (
@@ -255,39 +255,49 @@ export function FolderSidebar({
           isCollapsed ? 'w-16' : 'w-64'
         }`}
       >
-        <div className="p-4 border-b border-gray-700/30">
-          <div className="flex items-center justify-between mb-2">
+        <div className="p-3 border-b border-gray-700/30">
+          <div className="flex items-center justify-between gap-2">
+            {/* Collapse/Expand Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg hover:bg-violet-500/20 text-gray-400 hover:text-violet-400 transition-all shrink-0"
+                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  data-testid="button-toggle-sidebar"
+                >
+                  {isCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white z-[100]">
+                {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              </TooltipContent>
+            </Tooltip>
+
             {!isCollapsed && (
-              <div className="flex items-center gap-2">
-                <Layers className="h-5 w-5 text-cyan-400" />
-                <h3 className="text-base font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
-                  Folders
-                </h3>
-              </div>
-            )}
-            {isCollapsed && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full">
-                    <Layers className="h-5 w-5 text-cyan-400" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
-                  Folders
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {!isCollapsed && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-lg hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 transition-all"
-                onClick={() => onCreateFolder()}
-                data-testid="button-create-folder"
-                title="Create Folder"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Layers className="h-5 w-5 text-cyan-400 shrink-0" />
+                  <h3 className="text-base font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent truncate">
+                    Folders
+                  </h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 transition-all shrink-0"
+                  onClick={() => onCreateFolder()}
+                  data-testid="button-create-folder"
+                  title="Create Folder"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -326,7 +336,7 @@ export function FolderSidebar({
                 </div>
               </TooltipTrigger>
               {isCollapsed && (
-                <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+                <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white z-[100]">
                   <div className="flex items-center gap-2">
                     All Videos
                     <span className="text-xs text-emerald-400">({totalVideos})</span>
@@ -368,7 +378,7 @@ export function FolderSidebar({
                   </div>
                 </TooltipTrigger>
                 {isCollapsed && (
-                  <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+                  <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white z-[100]">
                     <div className="flex items-center gap-2">
                       Uncategorized
                       <span className="text-xs text-gray-400">({uncategorizedCount})</span>
@@ -388,35 +398,6 @@ export function FolderSidebar({
             </div>
           </div>
         </ScrollArea>
-
-        {/* Collapse/Expand Toggle */}
-        <div className="p-3 border-t border-gray-700/30">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`w-full rounded-lg hover:bg-violet-500/20 text-gray-400 hover:text-violet-400 transition-all ${
-                  isCollapsed ? 'justify-center px-0' : 'justify-between px-3'
-                }`}
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                data-testid="button-toggle-sidebar"
-              >
-                {isCollapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" />
-                ) : (
-                  <>
-                    <span className="text-xs font-medium">Collapse</span>
-                    <PanelLeftClose className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
-              {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            </TooltipContent>
-          </Tooltip>
-        </div>
       </div>
     </TooltipProvider>
   );

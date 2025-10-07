@@ -351,7 +351,7 @@ export default function Home() {
           </div>
 
           {/* Bottom: History */}
-          <div className="min-h-[450px]">
+          <div className="h-[500px]">
             <VideoHistoryPanel
               jobs={jobs}
               onSelectVideo={(job) => setCurrentJobId(job.id)}

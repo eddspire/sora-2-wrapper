@@ -222,7 +222,7 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
         onSubmit={handleFolderDialogSubmit}
       />
       
-      <div className="rounded-2xl bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-gray-700/50 shadow-2xl transition-all duration-300 relative overflow-hidden">
+      <div className="h-full rounded-2xl bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-gray-700/50 shadow-2xl transition-all duration-300 relative overflow-hidden">
         <div className="flex h-full">
           {/* Folder Sidebar */}
           <FolderSidebar
@@ -236,51 +236,9 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
           />
 
           {/* Main Content */}
-          <div className="flex-1 flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-700/50">
-              <div>
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
-                  {currentFolderName}
-                </h2>
-                <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    {stats.completed} completed
-                  </span>
-                  {stats.processing > 0 && (
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-                      {stats.processing} processing
-                    </span>
-                  )}
-                  {stats.failed > 0 && (
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                      {stats.failed} failed
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              {filteredJobs.length > 0 && selectedFolderId !== "all" && (
-                <Button
-                  onClick={() => {
-                    if (confirm(`Clear all videos in ${currentFolderName}?`)) {
-                      filteredJobs.forEach(job => onDelete(job.id));
-                    }
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-lg text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-all"
-                >
-                  Clear Folder
-                </Button>
-              )}
-            </div>
-
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[400px] custom-scrollbar">
+            <div className="p-6 overflow-y-auto h-full custom-scrollbar">
               {filteredJobs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="relative mb-4">
@@ -291,7 +249,7 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
                   <p className="text-gray-500 text-sm mt-2">Generated videos will appear here</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
                   {filteredJobs.map((job) => {
                 const isProcessing = job.status === "queued" || job.status === "in_progress";
                 const isFailed = job.status === "failed";
@@ -392,9 +350,9 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
                       </div>
 
                       {/* Quick Actions Row */}
-                      <div className="flex items-center justify-between gap-1 mt-3">
+                      <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                         <TooltipProvider>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             {/* Copy Prompt */}
                             <Tooltip>
                               <TooltipTrigger asChild>
