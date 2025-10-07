@@ -207,88 +207,177 @@ export function FolderSidebar({
   };
 
   return (
-    <div className="flex flex-col h-full border-r border-gray-700/30 bg-gray-900/50 backdrop-blur-xl">
-      <div className="p-4 border-b border-gray-700/30">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-cyan-400" />
-            <h3 className="text-base font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
-              Folders
-            </h3>
+    <TooltipProvider>
+      <div 
+        className={`flex flex-col h-full border-r border-gray-700/30 bg-gray-900/50 backdrop-blur-xl transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}
+      >
+        <div className="p-4 border-b border-gray-700/30">
+          <div className="flex items-center justify-between mb-2">
+            {!isCollapsed && (
+              <div className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-cyan-400" />
+                <h3 className="text-base font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
+                  Folders
+                </h3>
+              </div>
+            )}
+            {isCollapsed && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-center w-full">
+                    <Layers className="h-5 w-5 text-cyan-400" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+                  Folders
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {!isCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-lg hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 transition-all"
+                onClick={() => onCreateFolder()}
+                data-testid="button-create-folder"
+                title="Create Folder"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-lg hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 transition-all"
-            onClick={() => onCreateFolder()}
-            data-testid="button-create-folder"
-            title="Create Folder"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        </div>
+
+        <ScrollArea className="flex-1 custom-scrollbar">
+          <div className={`p-3 space-y-1 ${isCollapsed ? 'px-2' : ''}`}>
+            {/* All Videos */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`flex items-center gap-2 rounded-xl cursor-pointer transition-all ${
+                    isCollapsed ? 'justify-center px-2 py-3' : 'px-3 py-2.5'
+                  } ${
+                    selectedFolderId === "all" 
+                      ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30" 
+                      : "hover:bg-gray-800/50 border border-transparent"
+                  }`}
+                  onClick={() => onSelectFolder("all")}
+                  data-testid="folder-all"
+                >
+                  <Video className={`h-4 w-4 ${selectedFolderId === "all" ? 'text-emerald-400' : 'text-gray-400'} ${isCollapsed ? 'shrink-0' : ''}`} />
+                  {!isCollapsed && (
+                    <>
+                      <span className={`text-sm flex-1 ${selectedFolderId === "all" ? 'text-white font-medium' : 'text-gray-300'}`}>
+                        All Videos
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        selectedFolderId === "all" 
+                          ? 'bg-emerald-500/30 text-emerald-300 font-medium' 
+                          : 'bg-gray-700/50 text-gray-400'
+                      }`}>
+                        {totalVideos}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+                  <div className="flex items-center gap-2">
+                    All Videos
+                    <span className="text-xs text-emerald-400">({totalVideos})</span>
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+
+            {/* Uncategorized */}
+            {uncategorizedCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={`flex items-center gap-2 rounded-xl cursor-pointer transition-all ${
+                      isCollapsed ? 'justify-center px-2 py-3' : 'px-3 py-2.5'
+                    } ${
+                      selectedFolderId === "uncategorized" 
+                        ? "bg-gradient-to-r from-gray-600/20 to-gray-500/20 border border-gray-500/30" 
+                        : "hover:bg-gray-800/50 border border-transparent"
+                    }`}
+                    onClick={() => onSelectFolder("uncategorized")}
+                    data-testid="folder-uncategorized"
+                  >
+                    <Folder className={`h-4 w-4 ${selectedFolderId === "uncategorized" ? 'text-gray-300' : 'text-gray-500'} ${isCollapsed ? 'shrink-0' : ''}`} />
+                    {!isCollapsed && (
+                      <>
+                        <span className={`text-sm flex-1 ${selectedFolderId === "uncategorized" ? 'text-white font-medium' : 'text-gray-300'}`}>
+                          Uncategorized
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          selectedFolderId === "uncategorized" 
+                            ? 'bg-gray-500/30 text-gray-300 font-medium' 
+                            : 'bg-gray-700/50 text-gray-400'
+                        }`}>
+                          {uncategorizedCount}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+                    <div className="flex items-center gap-2">
+                      Uncategorized
+                      <span className="text-xs text-gray-400">({uncategorizedCount})</span>
+                    </div>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            )}
+
+            {!isCollapsed && folderTree.length > 0 && (
+              <div className="my-3 border-t border-gray-700/30" />
+            )}
+
+            {/* User Folders */}
+            {!isCollapsed && (
+              <div className="space-y-1">
+                {folderTree.map((node) => renderFolderNode(node))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Collapse/Expand Toggle */}
+        <div className="p-3 border-t border-gray-700/30">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`w-full rounded-lg hover:bg-violet-500/20 text-gray-400 hover:text-violet-400 transition-all ${
+                  isCollapsed ? 'justify-center px-0' : 'justify-between px-3'
+                }`}
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                data-testid="button-toggle-sidebar"
+              >
+                {isCollapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <>
+                    <span className="text-xs font-medium">Collapse</span>
+                    <PanelLeftClose className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-gray-900 border-gray-700 text-white">
+              {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
-
-      <ScrollArea className="flex-1 custom-scrollbar">
-        <div className="p-3 space-y-1">
-          {/* All Videos */}
-          <div
-            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-              selectedFolderId === "all" 
-                ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30" 
-                : "hover:bg-gray-800/50 border border-transparent"
-            }`}
-            onClick={() => onSelectFolder("all")}
-            data-testid="folder-all"
-          >
-            <Video className={`h-4 w-4 ${selectedFolderId === "all" ? 'text-emerald-400' : 'text-gray-400'}`} />
-            <span className={`text-sm flex-1 ${selectedFolderId === "all" ? 'text-white font-medium' : 'text-gray-300'}`}>
-              All Videos
-            </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              selectedFolderId === "all" 
-                ? 'bg-emerald-500/30 text-emerald-300 font-medium' 
-                : 'bg-gray-700/50 text-gray-400'
-            }`}>
-              {totalVideos}
-            </span>
-          </div>
-
-          {/* Uncategorized */}
-          {uncategorizedCount > 0 && (
-            <div
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-                selectedFolderId === "uncategorized" 
-                  ? "bg-gradient-to-r from-gray-600/20 to-gray-500/20 border border-gray-500/30" 
-                  : "hover:bg-gray-800/50 border border-transparent"
-              }`}
-              onClick={() => onSelectFolder("uncategorized")}
-              data-testid="folder-uncategorized"
-            >
-              <Folder className={`h-4 w-4 ${selectedFolderId === "uncategorized" ? 'text-gray-300' : 'text-gray-500'}`} />
-              <span className={`text-sm flex-1 ${selectedFolderId === "uncategorized" ? 'text-white font-medium' : 'text-gray-300'}`}>
-                Uncategorized
-              </span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                selectedFolderId === "uncategorized" 
-                  ? 'bg-gray-500/30 text-gray-300 font-medium' 
-                  : 'bg-gray-700/50 text-gray-400'
-              }`}>
-                {uncategorizedCount}
-              </span>
-            </div>
-          )}
-
-          {folderTree.length > 0 && (
-            <div className="my-3 border-t border-gray-700/30" />
-          )}
-
-          {/* User Folders */}
-          <div className="space-y-1">
-            {folderTree.map((node) => renderFolderNode(node))}
-          </div>
-        </div>
-      </ScrollArea>
-    </div>
+    </TooltipProvider>
   );
 }

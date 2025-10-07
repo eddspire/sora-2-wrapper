@@ -29,18 +29,25 @@ Preferred communication style: Simple, everyday language.
 **Key UI Components**:
 - `PromptInput`: Text area for entering video generation prompts with character validation (10-1000 chars) and AI-powered prompt enhancement
 - `QueueDashboard`: Real-time statistics display showing queued, processing, completed, and failed jobs
-- `VideoGrid`: Displays all video jobs in a responsive grid layout
-- `VideoCard`: Individual video job card showing status, progress, and video player when complete
+- `VideoHistoryPanel`: Displays all video jobs with integrated folder sidebar for organization
+- `FolderSidebar`: Hierarchical folder tree with expand/collapse, video counts, and context menus
+- `FolderDialog`: Modal for creating and renaming folders with color customization
+- `VideoCard`: Individual video job card with status, progress, video player, and move-to-folder dropdown
 
 ### Backend Architecture
 
 **Runtime**: Node.js with Express.js
 
 **API Design**: RESTful API with the following endpoints:
-- `POST /api/videos` - Create new video generation job
+- `POST /api/videos` - Create new video generation job (with optional folderId)
 - `GET /api/videos` - Retrieve all video jobs
 - `GET /api/videos/:id` - Retrieve specific video job
+- `PATCH /api/videos/:id/folder` - Move video to a folder
 - `POST /api/enhance-prompt` - Enhance video prompts using Claude Sonnet 4.5
+- `GET /api/folders` - Retrieve all folders
+- `POST /api/folders` - Create new folder
+- `PATCH /api/folders/:id` - Rename/update folder
+- `DELETE /api/folders/:id` - Delete folder (reassigns videos and subfolders to parent)
 - `GET /objects/*` - Serve video and thumbnail files from object storage
 
 **Queue System**: Custom `VideoQueueManager` class
@@ -58,13 +65,23 @@ Preferred communication style: Simple, everyday language.
 
 **Schema Design**:
 - `video_jobs` table tracking all generation requests
-- Fields: id (UUID), prompt, status, progress, videoId, videoUrl, thumbnailUrl, errorMessage, model, size, seconds, timestamps
+  - Fields: id (UUID), prompt, status, progress, videoId, videoUrl, thumbnailUrl, errorMessage, model, size, seconds, folderId, timestamps
+- `folders` table for hierarchical video organization
+  - Fields: id (UUID), name, parentId (nullable, for hierarchy), color (nullable), timestamps
+  - Supports unlimited nesting with parent-child relationships
 
 **Job Statuses**: 
 - `queued` - Job submitted and waiting
 - `in_progress` - Job being processed by OpenAI
 - `completed` - Video successfully generated
 - `failed` - Job failed with error message
+
+**Video Organization**:
+- Videos can be organized into hierarchical folders with unlimited nesting
+- Special views: "All Videos" (shows all), "Uncategorized" (shows videos without folder)
+- Videos can be moved between folders at any time via dropdown menu
+- Folders display video counts and can be color-coded
+- Deleting a folder safely reassigns all videos and subfolders to the parent folder
 
 ### File Storage Architecture
 
