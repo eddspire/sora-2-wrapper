@@ -6,6 +6,7 @@ import { queueManager } from "./queueManager";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertVideoJobSchema, insertWebhookSchema, updateSettingsSchema } from "@shared/schema";
 import { z } from "zod";
+import { enhancePrompt } from "./promptEnhancer";
 
 // Configure multer for file uploads (memory storage)
 const upload = multer({ 
@@ -351,6 +352,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating settings:", error);
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Enhance prompt using Claude Sonnet 4.5
+  app.post("/api/enhance-prompt", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      
+      if (!prompt || typeof prompt !== "string") {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+
+      if (prompt.trim().length < 5) {
+        return res.status(400).json({ error: "Prompt must be at least 5 characters" });
+      }
+
+      const enhancedPrompt = await enhancePrompt(prompt);
+      res.json({ enhancedPrompt });
+    } catch (error) {
+      console.error("Error enhancing prompt:", error);
+      res.status(500).json({ 
+        error: "Failed to enhance prompt",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

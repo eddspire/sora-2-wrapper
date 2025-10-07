@@ -27,7 +27,7 @@ Preferred communication style: Simple, everyday language.
 **Routing**: Wouter for lightweight client-side routing
 
 **Key UI Components**:
-- `PromptInput`: Text area for entering video generation prompts with character validation (10-1000 chars)
+- `PromptInput`: Text area for entering video generation prompts with character validation (10-1000 chars) and AI-powered prompt enhancement
 - `QueueDashboard`: Real-time statistics display showing queued, processing, completed, and failed jobs
 - `VideoGrid`: Displays all video jobs in a responsive grid layout
 - `VideoCard`: Individual video job card showing status, progress, and video player when complete
@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/videos` - Create new video generation job
 - `GET /api/videos` - Retrieve all video jobs
 - `GET /api/videos/:id` - Retrieve specific video job
+- `POST /api/enhance-prompt` - Enhance video prompts using Claude Sonnet 4.5
 - `GET /objects/*` - Serve video and thumbnail files from object storage
 
 **Queue System**: Custom `VideoQueueManager` class
@@ -87,6 +88,11 @@ Preferred communication style: Simple, everyday language.
 - Content download via `openai.videos.downloadContent()`
 - Supports configurable model, size (1280x720 default), and duration (8 seconds default)
 
+**Anthropic API** (Claude Sonnet 4.5):
+- Prompt enhancement service using `claude-sonnet-4-20250514` model
+- Improves user prompts for better Sora 2 video generation results
+- Provides shot type, lighting, and compositional guidance
+
 ### Cloud Services
 
 **Neon Database**:
@@ -105,6 +111,7 @@ Preferred communication style: Simple, everyday language.
 - `express` - Web server framework
 - `drizzle-orm` - TypeScript ORM
 - `openai` - OpenAI API client
+- `@anthropic-ai/sdk` - Anthropic Claude API client
 - `@google-cloud/storage` - GCS client
 - `zod` - Schema validation
 - `ws` - WebSocket support for Neon

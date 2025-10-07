@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Send, Sparkles, RefreshCw, Image as ImageIcon, Zap, DollarSign } from "lucide-react";
+import { Send, Sparkles, RefreshCw, Image as ImageIcon, Zap, DollarSign, Wand2 } from "lucide-react";
 import type { VideoJob } from "@shared/schema";
 import { calculateVideoCost } from "@/lib/cost-utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface PromptInputProps {
   onSubmit: (prompt: string, model: string, duration: string, size: string, inputReference?: File) => void;
@@ -20,12 +21,14 @@ interface PromptInputProps {
 }
 
 export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClear, availableVideos = [], onSelectRemixSource }: PromptInputProps) {
+  const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("sora-2-pro");
   const [duration, setDuration] = useState("8");
   const [size, setSize] = useState("1280x720");
   const [inputReference, setInputReference] = useState<File | null>(null);
   const [mode, setMode] = useState<"create" | "remix">(remixJob ? "remix" : "create");
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   useEffect(() => {
     if (remixJob) {
@@ -61,6 +64,47 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit();
+    }
+  };
+
+  const handleEnhancePrompt = async () => {
+    if (!prompt || prompt.trim().length < 5) {
+      toast({
+        title: "Prompt too short",
+        description: "Please enter at least 5 characters to enhance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const response = await fetch("/api/enhance-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to enhance prompt");
+      }
+
+      const { enhancedPrompt } = await response.json();
+      setPrompt(enhancedPrompt);
+      
+      toast({
+        title: "✨ Prompt enhanced!",
+        description: "Your prompt has been improved for better Sora 2 results",
+      });
+    } catch (error) {
+      toast({
+        title: "Enhancement failed",
+        description: error instanceof Error ? error.message : "Failed to enhance prompt",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
@@ -220,7 +264,30 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
 
             {/* Prompt */}
             <div className="space-y-2">
-              <Label className="text-gray-300 font-medium">Prompt</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-gray-300 font-medium">Prompt</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleEnhancePrompt}
+                  disabled={isEnhancing || isLoading || !prompt || prompt.trim().length < 5}
+                  className="h-8 px-3 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"
+                  data-testid="button-enhance-prompt"
+                >
+                  {isEnhancing ? (
+                    <>
+                      <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-cyan-400/30 border-t-cyan-400" />
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+                      Enhance Prompt
+                    </>
+                  )}
+                </Button>
+              </div>
         <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
