@@ -175,55 +175,6 @@ export default function Home() {
     });
   };
 
-  const handleBatchSubmit = async (prompts: string[], model: string, duration: string, size: string) => {
-    setIsGenerating(true);
-    
-    try {
-      // Create all jobs in parallel using allSettled for partial success
-      const createPromises = prompts.map(prompt =>
-        apiRequest("POST", "/api/videos", {
-          prompt,
-          model,
-          size,
-          seconds: parseInt(duration, 10),
-        })
-      );
-      
-      const results = await Promise.allSettled(createPromises);
-      
-      const successful = results.filter(r => r.status === "fulfilled").length;
-      const failed = results.filter(r => r.status === "rejected").length;
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      
-      if (successful > 0 && failed === 0) {
-        toast({
-          title: "Batch created",
-          description: `${successful} video${successful > 1 ? 's' : ''} added to queue`,
-        });
-      } else if (successful > 0 && failed > 0) {
-        toast({
-          title: "Partial success",
-          description: `${successful} created, ${failed} failed`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Batch creation failed",
-          description: `All ${failed} video${failed > 1 ? 's' : ''} failed to create`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Batch creation failed",
-        description: error instanceof Error ? error.message : "Failed to create batch",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleRetry = (id: string) => {
     retryMutation.mutate(id);
@@ -291,7 +242,6 @@ export default function Home() {
       <main className="pb-12">
         <PromptInput 
           onSubmit={handleSubmit} 
-          onBatchSubmit={handleBatchSubmit}
           isLoading={isGenerating}
           remixJob={remixJob}
           onRemixClear={() => setRemixJob(null)}
