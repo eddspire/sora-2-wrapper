@@ -1,83 +1,55 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2, Wand2, X, Image as ImageIcon } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Send, Sparkles, RefreshCw, Image as ImageIcon, Zap, DollarSign } from "lucide-react";
 import type { VideoJob } from "@shared/schema";
+import { calculateVideoCost } from "@/lib/cost-utils";
 
 interface PromptInputProps {
-  onSubmit: (prompt: string, model: string, duration: string, aspectRatio: string, inputReference?: File) => void;
+  onSubmit: (prompt: string, model: string, duration: string, size: string, inputReference?: File) => void;
   isLoading?: boolean;
   remixJob?: VideoJob | null;
   onRemixClear?: () => void;
+  availableVideos?: VideoJob[];
+  onSelectRemixSource?: (job: VideoJob) => void;
 }
 
-const ASPECT_RATIOS = {
-  "16:9": { label: "16:9 Landscape", size: "1280x720", proOnly: false },
-  "9:16": { label: "9:16 Portrait", size: "720x1280", proOnly: false },
-  "16:9-1080p": { label: "16:9 Landscape (1080p)", size: "1920x1080", proOnly: true },
-  "9:16-1080p": { label: "9:16 Portrait (1080p)", size: "1080x1920", proOnly: true },
-  "9:16-vertical": { label: "9:16 Vertical (Pro)", size: "1024x1792", proOnly: true },
-  "16:9-horizontal": { label: "16:9 Horizontal (Pro)", size: "1792x1024", proOnly: true },
-} as const;
-
-const DURATIONS = [
-  { value: "4", label: "4 seconds" },
-  { value: "8", label: "8 seconds" },
-  { value: "12", label: "12 seconds" },
-] as const;
-
-export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClear }: PromptInputProps) {
+export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClear, availableVideos = [], onSelectRemixSource }: PromptInputProps) {
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("sora-2-pro");
   const [duration, setDuration] = useState("8");
-  const [aspectRatio, setAspectRatio] = useState<keyof typeof ASPECT_RATIOS>("16:9");
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [size, setSize] = useState("1280x720");
   const [inputReference, setInputReference] = useState<File | null>(null);
+  const [mode, setMode] = useState<"create" | "remix">(remixJob ? "remix" : "create");
 
-  // Pre-fill form when remixing or clear when remix is cancelled
   useEffect(() => {
     if (remixJob) {
-      setPrompt(remixJob.prompt);
-      setModel(remixJob.model);
-      setDuration(String(remixJob.seconds));
-      
-      // Find matching aspect ratio from size
-      const sizeMatch = remixJob.size?.match(/^(\d+)x(\d+)$/);
-      if (sizeMatch) {
-        const width = parseInt(sizeMatch[1]);
-        const height = parseInt(sizeMatch[2]);
-        if (width === 1280 && height === 720) setAspectRatio("16:9");
-        else if (width === 720 && height === 1280) setAspectRatio("9:16");
-        else if (width === 1920 && height === 1080) setAspectRatio("16:9-1080p");
-        else if (width === 1080 && height === 1920) setAspectRatio("9:16-1080p");
-        else if (width === 1024 && height === 1792) setAspectRatio("9:16-vertical");
-        else if (width === 1792 && height === 1024) setAspectRatio("16:9-horizontal");
-      }
-      
-      setShowAdvanced(true);
-    } else {
-      // Clear prompt when remix is cancelled (but not on initial load)
+      setMode("remix");
+      setPrompt(remixJob.prompt || "");
+      setModel(remixJob.model || "sora-2-pro");
+      setDuration(String(remixJob.seconds || 8));
+      setSize(remixJob.size || "1280x720");
+    } else if (mode === "remix") {
+      setMode("create");
       setPrompt("");
     }
   }, [remixJob]);
 
-  // Auto-switch aspect ratio if Pro-only resolution is selected with sora-2 model
-  useEffect(() => {
-    const currentRatio = ASPECT_RATIOS[aspectRatio];
-    if (currentRatio.proOnly && model === "sora-2") {
-      // Switch to 16:9 720p as default
-      setAspectRatio("16:9");
+  const handleModeChange = (newMode: string) => {
+    setMode(newMode as "create" | "remix");
+    if (newMode === "create" && onRemixClear) {
+      onRemixClear();
     }
-  }, [model, aspectRatio]);
+  };
 
   const handleSubmit = () => {
     if (prompt.trim().length >= 10) {
-      onSubmit(prompt.trim(), model, duration, ASPECT_RATIOS[aspectRatio].size, inputReference || undefined);
-      // Only clear prompt if not remixing (remix will be cleared by parent on success)
+      onSubmit(prompt.trim(), model, duration, size, inputReference || undefined);
       if (!remixJob) {
         setPrompt("");
         setInputReference(null);
@@ -92,150 +64,262 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
     }
   };
 
-  const charCount = prompt.length;
-  const isValid = prompt.trim().length >= 10;
+  const charCount = (prompt || "").length;
+  const isValid = (prompt || "").trim().length >= 10;
 
-  // Get available aspect ratios based on model
-  const availableAspectRatios = Object.entries(ASPECT_RATIOS).filter(([_, value]) => {
-    if (model === "sora-2") {
-      return !value.proOnly;
-    }
-    return true; // Show all for sora-2-pro
-  });
+  // Calculate estimated cost
+  const estimatedCost = useMemo(() => {
+    return calculateVideoCost({
+      model: model as 'sora-2' | 'sora-2-pro',
+      size: size,
+      seconds: parseInt(duration)
+    });
+  }, [model, size, duration]);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 md:px-8 py-8">
-      {/* Remix Alert */}
-      {remixJob && (
-        <Alert className="mb-4 bg-primary/10 border-primary/30">
-          <Wand2 className="h-4 w-4 text-primary" />
-          <AlertDescription className="flex items-center justify-between">
-            <span>Remixing video - Modify parameters and submit to create a variation</span>
-            <Button
-              data-testid="button-clear-remix"
-              size="sm"
-              variant="ghost"
-              onClick={onRemixClear}
-              className="gap-1 h-6"
-            >
-              <X className="h-3 w-3" />
-              Clear
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+    <div className="h-full flex flex-col rounded-2xl bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-gray-700/50 shadow-2xl transition-all duration-300 relative overflow-hidden">
+      <div className="relative h-full flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-700/50">
+          <div>
+            <h2 className="text-xl font-semibold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
+              {mode === "create" ? "Create Video" : "Remix Video"}
+            </h2>
+            <p className="text-gray-400 text-sm mt-1">
+              {mode === "create" 
+                ? "Generate AI videos from imagination"
+                : "Transform existing videos with AI"}
+            </p>
+          </div>
+          <Tabs value={mode} onValueChange={handleModeChange}>
+            <TabsList className="bg-gray-800/80 border border-gray-700/50 backdrop-blur">
+              <TabsTrigger 
+                value="create" 
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-500 data-[state=active]:text-white"
+              >
+                <Sparkles className="mr-2 h-3.5 w-3.5" />
+                Create
+              </TabsTrigger>
+              <TabsTrigger 
+                value="remix"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-500 data-[state=active]:text-white"
+              >
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                Remix
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
-      <div className="bg-card border border-card-border rounded-xl p-6 transition-all duration-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-        {/* Prompt Input */}
+        {/* Form */}
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 pt-6 pb-4 custom-scrollbar">
+            {/* Select Source Video for Remix */}
+            {mode === "remix" && !remixJob && (
+              <div className="rounded-xl bg-gradient-to-r from-violet-500/20 to-purple-500/20 border border-violet-500/30 p-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-violet-300 font-medium">Select Source Video</Label>
+                  <span className="text-xs text-violet-400">
+                    {availableVideos.filter(v => v.status === "completed").length} available
+                  </span>
+                </div>
+                <Select 
+                  onValueChange={(videoId) => {
+                    const selected = availableVideos.find(v => v.id === videoId);
+                    if (selected && onSelectRemixSource) {
+                      onSelectRemixSource(selected);
+                    }
+                  }}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="rounded-xl border-violet-500/50 bg-gray-900/50 text-white hover:border-violet-500 transition-colors h-11">
+                    <SelectValue placeholder="Choose video..." />
+                  </SelectTrigger>
+                  <SelectContent className="border-gray-700 bg-gray-900/95 backdrop-blur-xl text-white max-h-[400px] w-[600px]">
+                    {availableVideos.filter(v => v.status === "completed").length === 0 ? (
+                      <div className="p-6 text-center text-gray-400 text-sm">
+                        <Sparkles className="h-8 w-8 mx-auto mb-2 text-gray-600" />
+                        <p>No completed videos yet</p>
+                        <p className="text-xs text-gray-500 mt-1">Generate a video first to remix it</p>
+                      </div>
+                    ) : (
+                      <div className="p-1">
+                        {availableVideos
+                          .filter(v => v.status === "completed")
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .map(video => (
+                            <SelectItem 
+                              key={video.id} 
+                              value={video.id}
+                              className="focus:bg-violet-500/20 cursor-pointer rounded-lg p-0 mb-1 overflow-hidden"
+                            >
+                              <div className="flex items-center gap-4 p-2 w-full">
+                                {/* Thumbnail */}
+                                <div className="relative w-24 h-16 rounded-lg overflow-hidden bg-gray-800 shrink-0 border border-gray-700">
+                                  {video.thumbnailUrl ? (
+                                    <img 
+                                      src={video.thumbnailUrl} 
+                                      alt="Video thumbnail"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Sparkles className="h-5 w-5 text-gray-600" />
+                                    </div>
+                                  )}
+                                  {/* Duration Badge */}
+                                  <div className="absolute bottom-1 right-1 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white font-medium">
+                                    {video.seconds}s
+                                  </div>
+                                </div>
+                                
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-white truncate mb-1" title={video.prompt}>
+                                    {video.prompt}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <span className={video.model === "sora-2-pro" ? "text-violet-400 font-medium" : "text-cyan-400 font-medium"}>
+                                      {video.model === "sora-2-pro" ? "Pro" : "Fast"}
+                                    </span>
+                                    <span>•</span>
+                                    <span>{video.size?.split("x")[0]}p</span>
+                                    <span>•</span>
+                                    <span>{video.size}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                        }
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Remix Banner */}
+      {remixJob && (
+              <div className="rounded-xl bg-gradient-to-r from-violet-500/20 to-purple-500/20 border border-violet-500/30 p-4 backdrop-blur-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-violet-300 mb-1">Remixing Source</p>
+                    <p className="text-xs text-gray-400 line-clamp-2">"{remixJob.prompt}"</p>
+                    <div className="flex gap-2 mt-2 text-xs text-gray-500">
+                      <span>{remixJob.model}</span>
+                      <span>•</span>
+                      <span>{remixJob.size}</span>
+                      <span>•</span>
+                      <span>{remixJob.seconds}s</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Prompt */}
+            <div className="space-y-2">
+              <Label className="text-gray-300 font-medium">Prompt</Label>
         <Textarea
-          data-testid="input-prompt"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Describe the video you want to generate... (e.g., 'Wide shot of a child flying a red kite in a grassy park, golden hour sunlight, camera slowly pans upward.')"
-          className="min-h-[120px] text-lg leading-relaxed resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
-        />
+                placeholder={mode === "remix" 
+                  ? "Describe modifications... (e.g., 'Add golden sunset', 'Change to winter scene')"
+                  : "Describe your video... (e.g., 'Cinematic shot of a futuristic city at night')"
+                }
+                disabled={isLoading}
+                className="min-h-[120px] rounded-xl border-gray-700/50 bg-gray-900/50 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all resize-none"
+              />
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">
+                  {charCount}/1000 {charCount >= 10 ? "✓" : "• Min 10 chars"}
+                </span>
+                <span className="text-gray-600">⌘ + Enter to submit</span>
+              </div>
+            </div>
 
-        <div className="space-y-4 mt-4 pt-4 border-t border-card-border">
-          {/* Model Selection - Always Visible */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Model */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-muted-foreground" />
-                Model
-              </label>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger data-testid="select-model" className="w-full">
+              <Label className="text-gray-300 font-medium">AI Model</Label>
+              <Select value={model} onValueChange={setModel} disabled={isLoading || !!remixJob}>
+                <SelectTrigger className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white hover:border-cyan-500/50 transition-colors">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sora-2-pro" data-testid="option-sora-2-pro">
+                <SelectContent className="border-gray-700 bg-gray-900 backdrop-blur-xl">
+                  <SelectItem value="sora-2-pro" className="text-white focus:bg-violet-500/20">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
+                      <Sparkles className="h-4 w-4 text-violet-400" />
                       <span>Sora 2 Pro</span>
+                      <span className="text-xs text-violet-400">Premium</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="sora-2" data-testid="option-sora-2">
+                  <SelectItem value="sora-2" className="text-white focus:bg-cyan-500/20">
                     <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-warning" />
+                      <Zap className="h-4 w-4 text-cyan-400" />
                       <span>Sora 2</span>
+                      <span className="text-xs text-cyan-400">Fast</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                {model === "sora-2-pro" ? "Highest quality, more aspect ratios" : "Faster, 720p only"}
-              </p>
             </div>
 
+            {/* Resolution */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                <Maximize2 className="h-4 w-4 text-muted-foreground" />
-                Aspect Ratio
-              </label>
-              <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as keyof typeof ASPECT_RATIOS)}>
-                <SelectTrigger data-testid="select-aspect-ratio" className="w-full">
+              <Label className="text-gray-300 font-medium">Resolution</Label>
+              <Select value={size} onValueChange={setSize} disabled={isLoading || !!remixJob}>
+                <SelectTrigger className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white hover:border-cyan-500/50 transition-colors">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  {availableAspectRatios.map(([key, value]) => (
-                    <SelectItem 
-                      key={key} 
-                      value={key} 
-                      data-testid={`option-aspect-${key}`}
-                    >
-                      {value.label}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="border-gray-700 bg-gray-900 backdrop-blur-xl text-white">
+                  <SelectItem value="720x1280" className="focus:bg-cyan-500/20">720x1280 (Portrait)</SelectItem>
+                  <SelectItem value="1280x720" className="focus:bg-cyan-500/20">1280x720 (Landscape)</SelectItem>
+                  {model === "sora-2-pro" && (
+                    <>
+                      <SelectItem value="1024x1792" className="focus:bg-violet-500/20">1024x1792 (Portrait HD)</SelectItem>
+                      <SelectItem value="1792x1024" className="focus:bg-violet-500/20">1792x1024 (Landscape HD)</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          {/* Advanced Options */}
-          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-            <CollapsibleTrigger data-testid="button-advanced-toggle" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
-              Advanced Options
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    Duration
-                  </label>
-                  <Select value={duration} onValueChange={setDuration}>
-                    <SelectTrigger data-testid="select-duration" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATIONS.map((d) => (
-                        <SelectItem key={d.value} value={d.value} data-testid={`option-duration-${d.value}`}>
-                          {d.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            {/* Duration */}
+            <div className="space-y-3">
+              <Label className="text-gray-300 font-medium">Duration</Label>
+              <RadioGroup value={duration} onValueChange={setDuration} disabled={isLoading || !!remixJob} className="flex gap-3">
+                {["4", "8", "12"].map((dur) => (
+                  <div key={dur} className="flex-1">
+                    <RadioGroupItem value={dur} id={`duration-${dur}`} className="peer sr-only" />
+                    <Label
+                      htmlFor={`duration-${dur}`}
+                      className="flex items-center justify-center rounded-lg border-2 border-gray-700/50 bg-gray-900/30 px-4 py-3 cursor-pointer hover:border-cyan-500/50 peer-data-[state=checked]:border-cyan-500 peer-data-[state=checked]:bg-cyan-500/10 transition-all"
+                    >
+                      <span className="text-sm font-medium text-gray-300 peer-data-[state=checked]:text-cyan-400">{dur}s</span>
+                    </Label>
+          </div>
+                ))}
+              </RadioGroup>
               </div>
               
-              {/* Input Reference Upload */}
-              <div className="space-y-2">
-                <label htmlFor="input-reference" className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  Input Reference (Optional)
-                </label>
+            {/* Input Reference */}
+            {mode === "create" && (
+              <div className="space-y-3 pb-2">
+                <Label className="text-gray-300 font-medium flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-cyan-400" />
+                  Input Reference
+                </Label>
+                <div className="relative">
                 <Input
-                  id="input-reference"
-                  data-testid="input-reference"
                   type="file"
                   accept="image/jpeg,image/png,image/webp,video/mp4"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       if (file.size > 100 * 1024 * 1024) {
-                        alert(`File size exceeds 100MB limit. Selected file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+                          alert(`File too large: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
                         e.target.value = "";
                         return;
                       }
@@ -243,44 +327,59 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                     }
                   }}
                   disabled={isLoading}
-                  className="cursor-pointer file:cursor-pointer file:mr-4 file:px-4 file:py-2 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                    className="rounded-xl border-gray-700/50 bg-gray-900/50 text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-500/20 file:px-4 file:py-2.5 file:text-cyan-400 file:font-medium hover:file:bg-cyan-500/30 hover:border-cyan-500/50 transition-colors cursor-pointer"
                 />
+                </div>
                 {inputReference && (
-                  <p className="text-xs text-muted-foreground">Selected: {inputReference.name}</p>
+                  <div className="flex items-center gap-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 px-3 py-2">
+                    <span className="text-xs text-cyan-400">✓ {inputReference.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setInputReference(null)}
+                      className="ml-auto text-xs text-cyan-400 hover:text-cyan-300"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Upload an image or video to use as the first frame (max 100MB)
-                </p>
+                <p className="text-xs text-gray-500">Optional: Upload image/video as first frame (max 100MB)</p>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            )}
+          </div>
 
-          {/* Submit Row */}
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <p className="text-xs text-muted-foreground">
-              {charCount}/1000 {charCount >= 10 ? "" : "• Min 10 chars"}
-              <span className="ml-2 opacity-60 hidden sm:inline">⌘+Enter to submit</span>
-            </p>
+          {/* Submit Button */}
+          <div className="p-6 pt-4 border-t border-gray-700/50 space-y-3">
+            {/* Cost Estimate */}
+            {estimatedCost && !isLoading && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Estimated Cost:</span>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-emerald-400" />
+                  <span className="font-semibold text-emerald-400">${estimatedCost.totalCost.toFixed(2)}</span>
+                  <span className="text-gray-500 text-xs">({estimatedCost.pricePerSecond}/sec)</span>
+                </div>
+              </div>
+            )}
+            
             <Button
-              data-testid="button-generate"
-              onClick={handleSubmit}
-              disabled={!isValid || isLoading}
-              className="px-6 py-3 gap-2"
+              type="submit"
+              disabled={!isValid || isLoading || (mode === "remix" && !remixJob)}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {isLoading ? (
                 <>
-                  <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Generating...
+                  <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  {mode === "remix" ? "Creating Remix..." : "Generating..."}
                 </>
               ) : (
                 <>
-                  <Send className="h-4 w-4" />
-                  Generate Video
+                  {mode === "remix" ? <RefreshCw className="mr-2 h-5 w-5" /> : <Send className="mr-2 h-5 w-5" />}
+                  {mode === "remix" ? "Create Remix" : "Generate Video"}
                 </>
               )}
             </Button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

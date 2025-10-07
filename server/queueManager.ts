@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { videoJobs } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { createVideo, getVideoStatus, downloadVideoContent } from "./openai";
+import { createVideo, getVideoStatus, downloadVideoContent, remixVideo } from "./openai";
 import { ObjectStorageService } from "./objectStorage";
 import { webhookService } from "./webhookService";
 import { calculateCost } from "./costCalculator";
@@ -129,10 +129,27 @@ export class VideoQueueManager {
       console.log(`Job ${jobId} already has videoId ${job.videoId}, continuing with existing video (no new charge)`);
       video = { id: job.videoId };
     } else {
-      // Only create a NEW video if we haven't already
-      // If there's an input reference, download it from object storage and resize to match video dimensions
-      let inputReferenceBuffer: { buffer: Buffer; filename: string; contentType: string } | undefined;
-      if (job.inputReferenceUrl) {
+      // Check if this is a remix job
+      if (job.remixOfId) {
+        console.log(`Creating REMIX on OpenAI for job ${jobId} - remixing video ${job.remixOfId}`);
+        video = await remixVideo(job.remixOfId, job.prompt);
+        
+        // Update job with video ID and status
+        await db.update(videoJobs)
+          .set({
+            videoId: video.id,
+            status: "in_progress",
+            progress: 0,
+            updatedAt: new Date(),
+          })
+          .where(eq(videoJobs.id, jobId));
+          
+        console.log(`Remix generation started for job ${jobId}, OpenAI video ID: ${video.id}`);
+      } else {
+        // Only create a NEW video if we haven't already
+        // If there's an input reference, download it from object storage and resize to match video dimensions
+        let inputReferenceBuffer: { buffer: Buffer; filename: string; contentType: string } | undefined;
+        if (job.inputReferenceUrl) {
         try {
           const objectStorage = new ObjectStorageService();
           const file = await objectStorage.getObjectEntityFile(job.inputReferenceUrl);
@@ -176,27 +193,28 @@ export class VideoQueueManager {
         }
       }
 
-      // Start video generation with OpenAI - THIS IS THE ONLY PLACE WE CREATE AND CHARGE
-      console.log(`Creating NEW video on OpenAI for job ${jobId} - THIS WILL CHARGE YOUR ACCOUNT`);
-      video = await createVideo(
-        job.prompt, 
-        job.model || "sora-2-pro", 
-        job.size || "1280x720", 
-        job.seconds || 8, 
-        inputReferenceBuffer
-      );
-      
-      // Update job with video ID and status
-      await db.update(videoJobs)
-        .set({
-          videoId: video.id,
-          status: "in_progress",
-          progress: 0,
-          updatedAt: new Date(),
-        })
-        .where(eq(videoJobs.id, jobId));
+        // Start video generation with OpenAI - THIS IS THE ONLY PLACE WE CREATE AND CHARGE
+        console.log(`Creating NEW video on OpenAI for job ${jobId} - THIS WILL CHARGE YOUR ACCOUNT`);
+        video = await createVideo(
+          job.prompt, 
+          job.model || "sora-2-pro", 
+          job.size || "1280x720", 
+          job.seconds || 8, 
+          inputReferenceBuffer
+        );
         
-      console.log(`Video generation started for job ${jobId}, OpenAI video ID: ${video.id}`);
+        // Update job with video ID and status
+        await db.update(videoJobs)
+          .set({
+            videoId: video.id,
+            status: "in_progress",
+            progress: 0,
+            updatedAt: new Date(),
+          })
+          .where(eq(videoJobs.id, jobId));
+          
+        console.log(`Video generation started for job ${jobId}, OpenAI video ID: ${video.id}`);
+      }
     }
 
     // Poll for completion with exponential backoff to reduce API costs

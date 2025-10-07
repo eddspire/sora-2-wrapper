@@ -1,144 +1,66 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Header } from "@/components/Header";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { PromptInput } from "@/components/PromptInput";
+import { VideoOutput } from "@/components/VideoOutput";
+import { VideoHistoryPanel } from "@/components/VideoHistoryPanel";
 import { QueueDashboard } from "@/components/QueueDashboard";
-import { VideoGrid } from "@/components/VideoGrid";
-import { FilterBar } from "@/components/FilterBar";
 import { useToast } from "@/hooks/use-toast";
-import type { VideoJob, InsertVideoJob } from "@shared/schema";
+import type { VideoJob } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [remixJob, setRemixJob] = useState<VideoJob | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
   // Fetch all video jobs
-  const { data: jobs = [], isLoading } = useQuery<VideoJob[]>({
+  const { data: jobs = [] } = useQuery<VideoJob[]>({
     queryKey: ["/api/videos"],
-    refetchInterval: 3000, // Poll every 3 seconds for updates
-  });
-
-  // Filter jobs based on search and status
-  const filteredJobs = useMemo(() => {
-    let filtered = jobs;
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.prompt.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(job => job.status === statusFilter);
-    }
-
-    return filtered;
-  }, [jobs, searchQuery, statusFilter]);
-
-  // Calculate queue statistics (from all jobs, not filtered)
-  const stats = useMemo(() => {
-    const queued = jobs.filter(j => j.status === "queued").length;
-    const processing = jobs.filter(j => j.status === "in_progress").length;
-    const completed = jobs.filter(j => j.status === "completed").length;
-    const failed = jobs.filter(j => j.status === "failed").length;
-    
-    // Calculate total cost from completed jobs only
-    const totalCost = jobs
-      .filter(j => j.status === "completed" && j.costDetails)
-      .reduce((sum, job) => {
-        try {
-          const cost = JSON.parse(job.costDetails!);
-          return sum + (cost.totalCost || 0);
-        } catch {
-          return sum;
-        }
-      }, 0);
-    
-    return { queued, processing, completed, failed, totalCost };
-  }, [jobs]);
-
-  // Create video job mutation
-  const createVideoMutation = useMutation({
-    mutationFn: async (data: InsertVideoJob) => {
-      return await apiRequest("POST", "/api/videos", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      toast({
-        title: remixJob ? "Remix created" : "Video job created",
-        description: remixJob ? "Your remixed video is now in the queue" : "Your video is now in the generation queue",
-      });
-      setIsGenerating(false);
-      // Clear remix state after successful submission
-      if (remixJob) {
-        setRemixJob(null);
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to create video job",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsGenerating(false);
-    },
-  });
-
-  // Retry failed job mutation
-  const retryMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("POST", `/api/videos/${id}/retry`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      toast({
-        title: "Job requeued",
-        description: "The video generation will be retried",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to retry job",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete video job mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/videos/${id}`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      toast({
-        title: "Video deleted",
-        description: "The video and its data have been removed",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to delete video",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    refetchInterval: 3000,
   });
 
   const handleSubmit = async (prompt: string, model: string, duration: string, size: string, inputReference?: File) => {
     setIsGenerating(true);
     
+    if (remixJob) {
+      try {
+        const response = await fetch(`/api/videos/${remixJob.id}/remix`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to create remix");
+        }
+        
+        const newJob = await response.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+        setCurrentJobId(newJob.id);
+        
+        toast({
+          title: "✨ Remix created",
+          description: "Your remixed video is now in the queue",
+        });
+        
+        setIsGenerating(false);
+        setRemixJob(null);
+        return;
+      } catch (error) {
+        toast({
+          title: "Failed to create remix",
+          description: error instanceof Error ? error.message : "Unknown error",
+          variant: "destructive",
+        });
+        setIsGenerating(false);
+        return;
+      }
+    }
+    
     let inputReferenceUrl: string | undefined;
     
-    // Upload input reference file if provided
     if (inputReference) {
       try {
         const formData = new FormData();
@@ -149,9 +71,7 @@ export default function Home() {
           body: formData,
         });
         
-        if (!response.ok) {
-          throw new Error("Failed to upload input reference");
-        }
+        if (!response.ok) throw new Error("Failed to upload input reference");
         
         const data = await response.json();
         inputReferenceUrl = data.url;
@@ -166,22 +86,51 @@ export default function Home() {
       }
     }
     
-    createVideoMutation.mutate({
-      prompt,
-      model,
-      size,
-      seconds: parseInt(duration, 10),
-      inputReferenceUrl,
+    try {
+      const response = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          model,
+          size,
+          seconds: parseInt(duration, 10),
+          inputReferenceUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create video");
+      }
+
+      const newJob = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      setCurrentJobId(newJob.id);
+
+      toast({
+        title: "🎬 Video job created",
+        description: "Your video is now in the generation queue",
+      });
+
+      setIsGenerating(false);
+    } catch (error) {
+      toast({
+        title: "Failed to create video job",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRemix = (job: VideoJob) => {
+    setRemixJob(job);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast({
+      title: "🎨 Ready to remix",
+      description: "Modify the prompt to create a variation",
     });
-  };
-
-
-  const handleRetry = (id: string) => {
-    retryMutation.mutate(id);
-  };
-
-  const handleDelete = (id: string) => {
-    deleteMutation.mutate(id);
   };
 
   const handleDownload = async (url: string, id: string) => {
@@ -191,14 +140,14 @@ export default function Home() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `sora-video-${id}.mp4`;
+      a.download = `sora-${id}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
       
       toast({
-        title: "Download started",
+        title: "⬇️ Download started",
         description: "Your video is being downloaded",
       });
     } catch (error) {
@@ -210,58 +159,147 @@ export default function Home() {
     }
   };
 
-  const handleRegenerate = (job: VideoJob) => {
-    setIsGenerating(true);
-    createVideoMutation.mutate({
-      prompt: job.prompt,
-      model: job.model,
-      size: job.size,
-      seconds: job.seconds,
-    });
-    
-    toast({
-      title: "Regenerating video",
-      description: "Creating a new version with the same parameters",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await fetch(`/api/videos/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete video");
+
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      if (currentJobId === id) setCurrentJobId(null);
+
+      toast({
+        title: "🗑️ Video deleted",
+        description: "The video has been removed",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to delete video",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleRemix = (job: VideoJob) => {
-    setRemixJob(job);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    toast({
-      title: "Ready to remix",
-      description: "Modify the parameters and submit to create a variation",
-    });
+  const handleClearHistory = async () => {
+    if (!confirm("Clear entire history? This cannot be undone.")) return;
+
+    try {
+      await Promise.all(jobs.map(job => fetch(`/api/videos/${job.id}`, { method: "DELETE" })));
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      setCurrentJobId(null);
+
+      toast({
+        title: "✨ History cleared",
+        description: "All videos have been removed",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to clear history",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
   };
+
+  const handleRegenerate = async (job: VideoJob) => {
+    setIsGenerating(true);
+    
+    try {
+      const response = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: job.prompt,
+          model: job.model,
+          size: job.size,
+          seconds: job.seconds,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to regenerate video");
+      }
+
+      const newJob = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      setCurrentJobId(newJob.id);
+
+      toast({
+        title: "🔄 Regenerating video",
+        description: "Creating a new version with the same parameters",
+      });
+
+      setIsGenerating(false);
+    } catch (error) {
+      toast({
+        title: "Failed to regenerate",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+      setIsGenerating(false);
+    }
+  };
+
+  const currentJob = useMemo(() => {
+    if (!currentJobId) return jobs[0] || null;
+    return jobs.find(j => j.id === currentJobId) || jobs[0] || null;
+  }, [currentJobId, jobs]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header apiStatus="connected" />
-      
-      <main className="pb-12">
-        <PromptInput 
-          onSubmit={handleSubmit} 
-          isLoading={isGenerating}
-          remixJob={remixJob}
-          onRemixClear={() => setRemixJob(null)}
-        />
-        <QueueDashboard stats={stats} />
-        <FilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-        />
-        <VideoGrid
-          jobs={filteredJobs}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
-          onDelete={handleDelete}
-          onRegenerate={handleRegenerate}
-          onRemix={handleRemix}
-          isLoading={isLoading}
-        />
+    <div className="relative min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 overflow-hidden">
+      {/* Animated Background Gradient Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-48 w-96 h-96 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-pulse delay-700" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+      </div>
+
+      {/* Grid Pattern Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+
+      <main className="relative flex min-h-screen flex-col p-4 md:p-6 lg:p-8">
+        <div className="w-full max-w-[1600px] mx-auto space-y-6">
+          {/* KPI Dashboard */}
+          <QueueDashboard jobs={jobs} />
+
+          {/* Two-Column Layout */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Left: Input */}
+            <div className="h-[70vh] min-h-[600px]">
+              <PromptInput 
+                onSubmit={handleSubmit} 
+                isLoading={isGenerating}
+                remixJob={remixJob}
+                onRemixClear={() => setRemixJob(null)}
+                availableVideos={jobs}
+                onSelectRemixSource={handleRemix}
+              />
+            </div>
+
+            {/* Right: Output */}
+            <div className="h-[70vh] min-h-[600px]">
+              <VideoOutput
+                job={currentJob}
+                onSendToRemix={handleRemix}
+                onDownload={handleDownload}
+              />
+            </div>
+          </div>
+
+          {/* Bottom: History */}
+          <div className="min-h-[450px]">
+            <VideoHistoryPanel
+              jobs={jobs}
+              onSelectVideo={(job) => setCurrentJobId(job.id)}
+              onClearHistory={handleClearHistory}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              onRemix={handleRemix}
+              onRegenerate={handleRegenerate}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

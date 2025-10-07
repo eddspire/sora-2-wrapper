@@ -17,6 +17,7 @@ export const videoJobs = pgTable("video_jobs", {
   size: varchar("size", { length: 20 }).default("1280x720"),
   seconds: integer("seconds").notNull().default(8),
   inputReferenceUrl: text("input_reference_url"), // URL to uploaded image/video reference
+  remixOfId: varchar("remix_of_id"), // ID of original video if this is a remix
   costDetails: text("cost_details"), // JSON string of cost breakdown
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -29,10 +30,12 @@ export const insertVideoJobSchema = createInsertSchema(videoJobs).pick({
   size: true,
   seconds: true,
   inputReferenceUrl: true,
+  remixOfId: true,
 }).extend({
   prompt: z.string().min(10, "Prompt must be at least 10 characters").max(1000, "Prompt must be less than 1000 characters"),
   seconds: z.number().int().min(4).max(12),
   inputReferenceUrl: z.string().optional(),
+  remixOfId: z.string().optional(),
 });
 
 // Types

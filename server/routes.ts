@@ -93,6 +93,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Remix a completed video
+  app.post("/api/videos/:id/remix", async (req, res) => {
+    try {
+      const sourceJob = await storage.getVideoJob(req.params.id);
+      if (!sourceJob) {
+        return res.status(404).json({ error: "Source video not found" });
+      }
+
+      if (sourceJob.status !== "completed") {
+        return res.status(400).json({ error: "Can only remix completed videos" });
+      }
+
+      const { prompt } = req.body;
+      if (!prompt || typeof prompt !== "string" || prompt.trim().length < 10) {
+        return res.status(400).json({ error: "Valid remix prompt is required (min 10 characters)" });
+      }
+
+      // Create new job with remix reference
+      const remixJob = await storage.createVideoJob({
+        prompt: prompt.trim(),
+        model: sourceJob.model,
+        size: sourceJob.size,
+        seconds: sourceJob.seconds,
+        remixOfId: sourceJob.id,
+      });
+
+      // Add to queue for processing
+      await queueManager.addToQueue(remixJob.id);
+
+      res.status(201).json(remixJob);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error creating remix job:", error);
+      res.status(500).json({ 
+        error: "Failed to create remix job",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Serve videos and thumbnails from object storage
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();

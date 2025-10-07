@@ -44,4 +44,9 @@ export async function downloadVideoContent(videoId: string, variant: "video" | "
   return content;
 }
 
+export async function remixVideo(sourceVideoId: string, prompt: string) {
+  const video = await openai.videos.remix(sourceVideoId, { prompt });
+  return video;
+}
+
 export { openai };
