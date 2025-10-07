@@ -182,7 +182,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                   <SelectTrigger className="rounded-xl border-violet-500/50 bg-gray-900/50 text-white hover:border-violet-500 transition-colors h-11">
                     <SelectValue placeholder="Choose video..." />
                   </SelectTrigger>
-                  <SelectContent className="border-gray-700 bg-gray-900/95 backdrop-blur-xl text-white max-h-[400px] w-[600px]">
+                  <SelectContent className="border-gray-700 bg-gray-900/95 backdrop-blur-xl text-white max-h-[400px] w-[600px] custom-scrollbar">
                     {availableVideos.filter(v => v.status === "completed").length === 0 ? (
                       <div className="p-6 text-center text-gray-400 text-sm">
                         <Sparkles className="h-8 w-8 mx-auto mb-2 text-gray-600" />
@@ -303,7 +303,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                   : "Describe your video... (e.g., 'Cinematic shot of a futuristic city at night')"
                 }
                 disabled={isLoading}
-                className="min-h-[120px] rounded-xl border-gray-700/50 bg-gray-900/50 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all resize-none"
+                className="min-h-[120px] rounded-xl border-gray-700/50 bg-gray-900/50 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all resize-none custom-scrollbar"
               />
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">
@@ -323,7 +323,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                 <SelectTrigger className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white hover:border-cyan-500/50 transition-colors">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-gray-700 bg-gray-900 backdrop-blur-xl">
+                <SelectContent className="border-gray-700 bg-gray-900 backdrop-blur-xl custom-scrollbar">
                   <SelectItem value="sora-2-pro" className="text-white focus:bg-violet-500/20">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-violet-400" />
@@ -352,7 +352,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                 <SelectTrigger className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white hover:border-cyan-500/50 transition-colors">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-gray-700 bg-gray-900 backdrop-blur-xl text-white">
+                <SelectContent className="border-gray-700 bg-gray-900 backdrop-blur-xl text-white custom-scrollbar">
                   <SelectItem value="720x1280" className="focus:bg-cyan-500/20">720x1280 (Portrait)</SelectItem>
                   <SelectItem value="1280x720" className="focus:bg-cyan-500/20">1280x720 (Landscape)</SelectItem>
                   {model === "sora-2-pro" && (
