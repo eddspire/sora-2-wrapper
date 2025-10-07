@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2, List, Wand2, X } from "lucide-react";
+import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2, List, Wand2, X, Image as ImageIcon } from "lucide-react";
 import type { VideoJob } from "@shared/schema";
 
 interface PromptInputProps {
-  onSubmit: (prompt: string, model: string, duration: string, aspectRatio: string) => void;
+  onSubmit: (prompt: string, model: string, duration: string, aspectRatio: string, inputReference?: File) => void;
   onBatchSubmit?: (prompts: string[], model: string, duration: string, aspectRatio: string) => void;
   isLoading?: boolean;
   remixJob?: VideoJob | null;
@@ -23,9 +24,9 @@ const ASPECT_RATIOS = {
 } as const;
 
 const DURATIONS = [
-  { value: "5", label: "5 seconds" },
+  { value: "4", label: "4 seconds" },
   { value: "8", label: "8 seconds" },
-  { value: "10", label: "10 seconds" },
+  { value: "12", label: "12 seconds" },
 ] as const;
 
 export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJob, onRemixClear }: PromptInputProps) {
@@ -36,13 +37,14 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJ
   const [duration, setDuration] = useState("8");
   const [aspectRatio, setAspectRatio] = useState<keyof typeof ASPECT_RATIOS>("16:9");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [inputReference, setInputReference] = useState<File | null>(null);
 
   // Pre-fill form when remixing or clear when remix is cancelled
   useEffect(() => {
     if (remixJob) {
       setPrompt(remixJob.prompt);
       setModel(remixJob.model);
-      setDuration(remixJob.seconds);
+      setDuration(String(remixJob.seconds));
       
       // Find matching aspect ratio from size
       const sizeMatch = remixJob.size?.match(/^(\d+)x(\d+)$/);
@@ -65,10 +67,11 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJ
   const handleSubmit = () => {
     if (mode === "single") {
       if (prompt.trim().length >= 10) {
-        onSubmit(prompt.trim(), model, duration, ASPECT_RATIOS[aspectRatio].size);
+        onSubmit(prompt.trim(), model, duration, ASPECT_RATIOS[aspectRatio].size, inputReference || undefined);
         // Only clear prompt if not remixing (remix will be cleared by parent on success)
         if (!remixJob) {
           setPrompt("");
+          setInputReference(null);
         }
       }
     } else {
@@ -201,40 +204,77 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJ
               Advanced Options
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <label className="text-sm font-medium text-foreground">Duration</label>
-                  <Select value={duration} onValueChange={setDuration}>
-                    <SelectTrigger data-testid="select-duration" className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATIONS.map((d) => (
-                        <SelectItem key={d.value} value={d.value} data-testid={`option-duration-${d.value}`}>
-                          {d.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <label className="text-sm font-medium text-foreground">Duration</label>
+                    <Select value={duration} onValueChange={setDuration}>
+                      <SelectTrigger data-testid="select-duration" className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DURATIONS.map((d) => (
+                          <SelectItem key={d.value} value={d.value} data-testid={`option-duration-${d.value}`}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                    <label className="text-sm font-medium text-foreground">Aspect Ratio</label>
+                    <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as keyof typeof ASPECT_RATIOS)}>
+                      <SelectTrigger data-testid="select-aspect-ratio" className="w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(ASPECT_RATIOS).map(([key, value]) => (
+                          <SelectItem key={key} value={key} data-testid={`option-aspect-${key}`}>
+                            <span>{value.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  <Maximize2 className="h-4 w-4 text-muted-foreground" />
-                  <label className="text-sm font-medium text-foreground">Aspect Ratio</label>
-                  <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as keyof typeof ASPECT_RATIOS)}>
-                    <SelectTrigger data-testid="select-aspect-ratio" className="w-[160px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(ASPECT_RATIOS).map(([key, value]) => (
-                        <SelectItem key={key} value={key} data-testid={`option-aspect-${key}`}>
-                          <span>{value.label}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Input Reference Upload */}
+                {mode === "single" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      <label htmlFor="input-reference" className="text-sm font-medium text-foreground">Input Reference (Optional)</label>
+                    </div>
+                    <Input
+                      id="input-reference"
+                      data-testid="input-reference"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,video/mp4"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 100 * 1024 * 1024) {
+                            alert(`File size exceeds 100MB limit. Selected file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+                            e.target.value = "";
+                            return;
+                          }
+                          setInputReference(file);
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="cursor-pointer file:cursor-pointer file:mr-4 file:px-4 file:py-2 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                    />
+                    {inputReference && (
+                      <p className="text-xs text-muted-foreground">Selected: {inputReference.name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Upload an image or video to use as the first frame (max 100MB)
+                    </p>
+                  </div>
+                )}
               </div>
             </CollapsibleContent>
           </Collapsible>

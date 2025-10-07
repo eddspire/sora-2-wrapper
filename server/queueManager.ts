@@ -88,7 +88,7 @@ export class VideoQueueManager {
     console.log(`Starting video generation for job ${jobId}`);
 
     // Start video generation with OpenAI
-    const video = await createVideo(job.prompt, job.model || "sora-2-pro", job.size || "1280x720", job.seconds || "8");
+    const video = await createVideo(job.prompt, job.model || "sora-2-pro", job.size || "1280x720", job.seconds || 8, job.inputReferenceUrl || undefined);
     
     // Update job with video ID and status
     await db.update(videoJobs)

@@ -119,13 +119,45 @@ export default function Home() {
     },
   });
 
-  const handleSubmit = (prompt: string, model: string, duration: string, size: string) => {
+  const handleSubmit = async (prompt: string, model: string, duration: string, size: string, inputReference?: File) => {
     setIsGenerating(true);
+    
+    let inputReferenceUrl: string | undefined;
+    
+    // Upload input reference file if provided
+    if (inputReference) {
+      try {
+        const formData = new FormData();
+        formData.append("file", inputReference);
+        
+        const response = await fetch("/api/upload-reference", {
+          method: "POST",
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to upload input reference");
+        }
+        
+        const data = await response.json();
+        inputReferenceUrl = data.url;
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: error instanceof Error ? error.message : "Failed to upload input reference",
+          variant: "destructive",
+        });
+        setIsGenerating(false);
+        return;
+      }
+    }
+    
     createVideoMutation.mutate({
       prompt,
       model,
       size,
-      seconds: duration,
+      seconds: parseInt(duration, 10),
+      inputReferenceUrl,
     });
   };
 
@@ -139,7 +171,7 @@ export default function Home() {
           prompt,
           model,
           size,
-          seconds: duration,
+          seconds: parseInt(duration, 10),
         })
       );
       

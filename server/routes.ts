@@ -1,10 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { storage } from "./storage";
 import { queueManager } from "./queueManager";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertVideoJobSchema, insertWebhookSchema } from "@shared/schema";
 import { z } from "zod";
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -139,6 +146,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting video job:", error);
       res.status(500).json({ error: "Failed to delete video job" });
+    }
+  });
+
+  // Upload input reference file (image or video)
+  app.post("/api/upload-reference", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const timestamp = Date.now();
+      const filename = `reference_${timestamp}_${req.file.originalname}`;
+      
+      // Upload to object storage in .private/references/ directory
+      const url = await objectStorageService.uploadInputReference(filename, req.file.buffer);
+      
+      res.json({ url });
+    } catch (error) {
+      console.error("Error uploading input reference:", error);
+      res.status(500).json({ error: "Failed to upload input reference" });
     }
   });
 

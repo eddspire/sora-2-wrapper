@@ -52,6 +52,31 @@ export class ObjectStorageService {
     return `/objects/${filePath}`;
   }
 
+  async uploadInputReference(filename: string, buffer: Buffer): Promise<string> {
+    const bucket = this.storage.bucket(this.bucketId);
+    const filePath = `${this.privateDir}/references/${filename}`;
+    const file = bucket.file(filePath);
+
+    // Determine content type from filename extension
+    const ext = filename.toLowerCase().split('.').pop();
+    const contentTypeMap: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'webp': 'image/webp',
+      'mp4': 'video/mp4',
+    };
+    const contentType = contentTypeMap[ext || ''] || 'application/octet-stream';
+
+    await file.save(buffer, {
+      metadata: {
+        contentType,
+      },
+    });
+
+    return `/objects/${filePath}`;
+  }
+
   async getObjectEntityFile(objectPath: string) {
     const bucket = this.storage.bucket(this.bucketId);
     const normalizedPath = objectPath.startsWith("/objects/") 

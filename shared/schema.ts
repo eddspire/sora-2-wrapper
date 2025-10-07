@@ -15,7 +15,9 @@ export const videoJobs = pgTable("video_jobs", {
   errorMessage: text("error_message"),
   model: varchar("model", { length: 50 }).notNull().default("sora-2-pro"),
   size: varchar("size", { length: 20 }).default("1280x720"),
-  seconds: varchar("seconds", { length: 10 }).default("8"),
+  seconds: integer("seconds").notNull().default(8),
+  inputReferenceUrl: text("input_reference_url"), // URL to uploaded image/video reference
+  costDetails: text("cost_details"), // JSON string of cost breakdown
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -26,8 +28,11 @@ export const insertVideoJobSchema = createInsertSchema(videoJobs).pick({
   model: true,
   size: true,
   seconds: true,
+  inputReferenceUrl: true,
 }).extend({
   prompt: z.string().min(10, "Prompt must be at least 10 characters").max(1000, "Prompt must be less than 1000 characters"),
+  seconds: z.number().int().min(4).max(12),
+  inputReferenceUrl: z.string().optional(),
 });
 
 // Types
