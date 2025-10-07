@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Send, Sparkles, RefreshCw, Image as ImageIcon, Zap, DollarSign, Wand2 } from "lucide-react";
+import { Send, Sparkles, RefreshCw, Image as ImageIcon, Zap, DollarSign, Wand2, FileText, Monitor, Clock, Video } from "lucide-react";
 import type { VideoJob } from "@shared/schema";
 import { calculateVideoCost } from "@/lib/cost-utils";
 import { useToast } from "@/hooks/use-toast";
@@ -162,7 +162,10 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
             {mode === "remix" && !remixJob && (
               <div className="rounded-xl bg-gradient-to-r from-violet-500/20 to-purple-500/20 border border-violet-500/30 p-4 backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <Label className="text-violet-300 font-medium">Select Source Video</Label>
+                  <Label className="text-violet-300 font-medium flex items-center gap-2">
+                    <Video className="h-4 w-4 text-violet-400" />
+                    Select Source Video
+                  </Label>
                   <span className="text-xs text-violet-400">
                     {availableVideos.filter(v => v.status === "completed").length} available
                   </span>
@@ -265,11 +268,14 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
             {/* Prompt */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-gray-300 font-medium">Prompt</Label>
-                <Button
+                <Label className="text-gray-300 font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-cyan-400" />
+                  Prompt
+                </Label>
+            <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+              size="sm"
                   onClick={handleEnhancePrompt}
                   disabled={isEnhancing || isLoading || !prompt || prompt.trim().length < 5}
                   className="h-8 px-3 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"
@@ -286,7 +292,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                       Enhance Prompt
                     </>
                   )}
-                </Button>
+            </Button>
               </div>
         <Textarea
           value={prompt}
@@ -309,7 +315,10 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
 
             {/* Model */}
             <div className="space-y-2">
-              <Label className="text-gray-300 font-medium">AI Model</Label>
+              <Label className="text-gray-300 font-medium flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                AI Model
+              </Label>
               <Select value={model} onValueChange={setModel} disabled={isLoading || !!remixJob}>
                 <SelectTrigger className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white hover:border-cyan-500/50 transition-colors">
                   <SelectValue />
@@ -335,7 +344,10 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
 
             {/* Resolution */}
             <div className="space-y-2">
-              <Label className="text-gray-300 font-medium">Resolution</Label>
+              <Label className="text-gray-300 font-medium flex items-center gap-2">
+                <Monitor className="h-4 w-4 text-cyan-400" />
+                Resolution
+              </Label>
               <Select value={size} onValueChange={setSize} disabled={isLoading || !!remixJob}>
                 <SelectTrigger className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white hover:border-cyan-500/50 transition-colors">
                   <SelectValue />
@@ -354,8 +366,11 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
             </div>
 
             {/* Duration */}
-            <div className="space-y-3">
-              <Label className="text-gray-300 font-medium">Duration</Label>
+            <div className="space-y-2">
+              <Label className="text-gray-300 font-medium flex items-center gap-2">
+                <Clock className="h-4 w-4 text-cyan-400" />
+                Duration
+              </Label>
               <RadioGroup value={duration} onValueChange={setDuration} disabled={isLoading || !!remixJob} className="flex gap-3">
                 {["4", "8", "12"].map((dur) => (
                   <div key={dur} className="flex-1">
@@ -373,7 +388,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
               
             {/* Input Reference */}
             {mode === "create" && (
-              <div className="space-y-3 pb-2">
+              <div className="space-y-2">
                 <Label className="text-gray-300 font-medium flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-cyan-400" />
                   Input Reference
@@ -394,7 +409,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                     }
                   }}
                   disabled={isLoading}
-                    className="rounded-xl border-gray-700/50 bg-gray-900/50 text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-500/20 file:px-4 file:py-2.5 file:text-cyan-400 file:font-medium hover:file:bg-cyan-500/30 hover:border-cyan-500/50 transition-colors cursor-pointer"
+                    className="w-full h-12 rounded-xl border-gray-700/50 bg-gray-900/50 text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-500/20 file:px-4 file:py-2 file:text-cyan-400 file:font-medium hover:file:bg-cyan-500/30 hover:border-cyan-500/50 transition-colors cursor-pointer flex items-center px-3"
                 />
                 </div>
                 {inputReference && (
