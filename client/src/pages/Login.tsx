@@ -29,6 +29,7 @@ export default function Login() {
 
       if (response.ok) {
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/status"] });
+        await queryClient.refetchQueries({ queryKey: ["/api/auth/status"] });
         toast({
           title: "Welcome!",
           description: "Authentication successful",
