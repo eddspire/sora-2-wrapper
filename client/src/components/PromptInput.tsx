@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Send, Zap, Sparkles, ChevronDown, Clock, Maximize2, List } from "lucide-react";
 
 interface PromptInputProps {
   onSubmit: (prompt: string, model: string, duration: string, aspectRatio: string) => void;
+  onBatchSubmit?: (prompts: string[], model: string, duration: string, aspectRatio: string) => void;
   isLoading?: boolean;
 }
 
@@ -22,17 +24,39 @@ const DURATIONS = [
   { value: "10", label: "10 seconds" },
 ] as const;
 
-export function PromptInput({ onSubmit, isLoading = false }: PromptInputProps) {
+export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false }: PromptInputProps) {
+  const [mode, setMode] = useState<"single" | "batch">("single");
   const [prompt, setPrompt] = useState("");
+  const [batchPrompts, setBatchPrompts] = useState("");
   const [model, setModel] = useState("sora-2-pro");
   const [duration, setDuration] = useState("8");
   const [aspectRatio, setAspectRatio] = useState<keyof typeof ASPECT_RATIOS>("16:9");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSubmit = () => {
-    if (prompt.trim().length >= 10) {
-      onSubmit(prompt.trim(), model, duration, ASPECT_RATIOS[aspectRatio].size);
-      setPrompt("");
+    if (mode === "single") {
+      if (prompt.trim().length >= 10) {
+        onSubmit(prompt.trim(), model, duration, ASPECT_RATIOS[aspectRatio].size);
+        setPrompt("");
+      }
+    } else {
+      // Batch mode - validate and filter prompts
+      const lines = batchPrompts.split('\n');
+      const validPrompts = lines
+        .map((p, idx) => ({ text: p.trim(), line: idx + 1 }))
+        .filter(p => p.text.length >= 10);
+      
+      const invalidCount = lines.filter(l => l.trim().length > 0 && l.trim().length < 10).length;
+      
+      if (validPrompts.length > 0 && onBatchSubmit) {
+        onBatchSubmit(
+          validPrompts.map(p => p.text), 
+          model, 
+          duration, 
+          ASPECT_RATIOS[aspectRatio].size
+        );
+        setBatchPrompts("");
+      }
     }
   };
 
@@ -43,17 +67,49 @@ export function PromptInput({ onSubmit, isLoading = false }: PromptInputProps) {
     }
   };
 
+  const currentPrompt = mode === "single" ? prompt : batchPrompts;
+  const lines = mode === "batch" ? batchPrompts.split('\n') : [];
+  const validPrompts = lines.filter(p => p.trim().length >= 10);
+  const invalidPrompts = lines.filter(l => l.trim().length > 0 && l.trim().length < 10);
+  const promptCount = validPrompts.length;
+  const charCount = currentPrompt.length;
+  const isValid = mode === "single" ? prompt.trim().length >= 10 : promptCount > 0;
+
   return (
     <div className="w-full max-w-7xl mx-auto px-6 md:px-8 py-8">
       <div className="bg-card border border-card-border rounded-xl p-6 transition-all duration-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-        <Textarea
-          data-testid="input-prompt"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Describe the video you want to generate... (e.g., 'Wide shot of a child flying a red kite in a grassy park, golden hour sunlight, camera slowly pans upward.')"
-          className="min-h-[120px] text-lg leading-relaxed resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
-        />
+        {/* Mode Toggle */}
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "batch")} className="mb-4">
+          <TabsList>
+            <TabsTrigger value="single" data-testid="tab-single">
+              <Send className="h-4 w-4 mr-2" />
+              Single
+            </TabsTrigger>
+            <TabsTrigger value="batch" data-testid="tab-batch">
+              <List className="h-4 w-4 mr-2" />
+              Batch
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {mode === "single" ? (
+          <Textarea
+            data-testid="input-prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Describe the video you want to generate... (e.g., 'Wide shot of a child flying a red kite in a grassy park, golden hour sunlight, camera slowly pans upward.')"
+            className="min-h-[120px] text-lg leading-relaxed resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
+          />
+        ) : (
+          <Textarea
+            data-testid="input-batch-prompts"
+            value={batchPrompts}
+            onChange={(e) => setBatchPrompts(e.target.value)}
+            placeholder="Enter multiple prompts, one per line... Each prompt must be at least 10 characters.&#10;&#10;Example:&#10;A serene mountain landscape at sunset&#10;Underwater coral reef with tropical fish&#10;Time-lapse of city traffic at night"
+            className="min-h-[180px] text-base leading-relaxed resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground font-mono"
+          />
+        )}
         <div className="space-y-4 mt-4 pt-4 border-t border-card-border">
           {/* Model Selection Row */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -134,13 +190,24 @@ export function PromptInput({ onSubmit, isLoading = false }: PromptInputProps) {
           {/* Submit Row */}
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
-              {prompt.length}/1000 {prompt.length >= 10 ? "" : "• Min 10"}
-              <span className="ml-2 opacity-60 hidden sm:inline">⌘+Enter</span>
+              {mode === "single" ? (
+                <>
+                  {charCount}/1000 {charCount >= 10 ? "" : "• Min 10"}
+                  <span className="ml-2 opacity-60 hidden sm:inline">⌘+Enter</span>
+                </>
+              ) : (
+                <>
+                  {promptCount} {promptCount === 1 ? "video" : "videos"} to generate
+                  {invalidPrompts.length > 0 && (
+                    <span className="ml-2 text-warning">• {invalidPrompts.length} invalid (too short)</span>
+                  )}
+                </>
+              )}
             </p>
             <Button
               data-testid="button-generate"
               onClick={handleSubmit}
-              disabled={prompt.trim().length < 10 || isLoading}
+              disabled={!isValid || isLoading}
               className="px-6 py-3 gap-2"
             >
               {isLoading ? (
@@ -151,7 +218,7 @@ export function PromptInput({ onSubmit, isLoading = false }: PromptInputProps) {
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  Generate Video
+                  {mode === "batch" ? `Generate ${promptCount} Videos` : "Generate Video"}
                 </>
               )}
             </Button>
