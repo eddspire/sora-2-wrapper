@@ -35,7 +35,7 @@ export function VideoGrid({ jobs, onRetry, onDownload, onDelete, onRegenerate, o
           <div>
             <h3 className="text-xl font-semibold mb-2">No videos yet</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Start by entering a prompt above to generate your first AI video with Sora 2 Pro
+              Start by entering a prompt above to generate your first AI video with Sora 2 Wrapper
             </p>
           </div>
         </div>

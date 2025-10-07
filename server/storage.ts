@@ -1,16 +1,25 @@
 // Reference: javascript_database blueprint
-import { videoJobs, webhooks, settings, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook, type Setting, type InsertSetting } from "@shared/schema";
+import { videoJobs, webhooks, settings, folders, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook, type Setting, type InsertSetting, type Folder, type InsertFolder } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Video job operations
   createVideoJob(job: InsertVideoJob): Promise<VideoJob>;
   getVideoJob(id: string): Promise<VideoJob | undefined>;
   getAllVideoJobs(): Promise<VideoJob[]>;
+  getVideoJobsByFolder(folderId: string | null): Promise<VideoJob[]>;
   updateVideoJobStatus(id: string, status: string, progress?: number, errorMessage?: string): Promise<void>;
   updateVideoJobUrls(id: string, videoUrl: string, thumbnailUrl?: string): Promise<void>;
+  updateVideoJobFolder(id: string, folderId: string | null): Promise<void>;
   deleteVideoJob(id: string): Promise<void>;
+  
+  // Folder operations
+  createFolder(folder: InsertFolder): Promise<Folder>;
+  getFolder(id: string): Promise<Folder | undefined>;
+  getAllFolders(): Promise<Folder[]>;
+  updateFolder(id: string, data: Partial<InsertFolder>): Promise<Folder>;
+  deleteFolder(id: string): Promise<void>;
   
   // Webhook operations
   createWebhook(webhook: InsertWebhook): Promise<Webhook>;
@@ -69,8 +78,59 @@ export class DatabaseStorage implements IStorage {
       .where(eq(videoJobs.id, id));
   }
 
+  async getVideoJobsByFolder(folderId: string | null): Promise<VideoJob[]> {
+    const jobs = folderId 
+      ? await db.select().from(videoJobs).where(eq(videoJobs.folderId, folderId)).orderBy(desc(videoJobs.createdAt))
+      : await db.select().from(videoJobs).where(isNull(videoJobs.folderId)).orderBy(desc(videoJobs.createdAt));
+    return jobs;
+  }
+
+  async updateVideoJobFolder(id: string, folderId: string | null): Promise<void> {
+    await db.update(videoJobs)
+      .set({
+        folderId,
+        updatedAt: new Date(),
+      })
+      .where(eq(videoJobs.id, id));
+  }
+
   async deleteVideoJob(id: string): Promise<void> {
     await db.delete(videoJobs).where(eq(videoJobs.id, id));
+  }
+
+  // Folder operations
+  async createFolder(insertFolder: InsertFolder): Promise<Folder> {
+    const [folder] = await db
+      .insert(folders)
+      .values(insertFolder)
+      .returning();
+    return folder;
+  }
+
+  async getFolder(id: string): Promise<Folder | undefined> {
+    const [folder] = await db.select().from(folders).where(eq(folders.id, id));
+    return folder || undefined;
+  }
+
+  async getAllFolders(): Promise<Folder[]> {
+    const allFolders = await db.select().from(folders).orderBy(desc(folders.createdAt));
+    return allFolders;
+  }
+
+  async updateFolder(id: string, data: Partial<InsertFolder>): Promise<Folder> {
+    const [folder] = await db
+      .update(folders)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(folders.id, id))
+      .returning();
+    return folder;
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    await db.delete(folders).where(eq(folders.id, id));
   }
 
   // Webhook operations
@@ -112,6 +172,42 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWebhook(id: string): Promise<void> {
     await db.delete(webhooks).where(eq(webhooks.id, id));
+  }
+
+  // Folder operations
+  async getFolders(): Promise<Folder[]> {
+    const allFolders = await db.select().from(folders).orderBy(folders.createdAt);
+    return allFolders;
+  }
+
+  async getFolder(id: string): Promise<Folder | undefined> {
+    const [folder] = await db.select().from(folders).where(eq(folders.id, id));
+    return folder || undefined;
+  }
+
+  async createFolder(data: InsertFolder): Promise<Folder> {
+    const [folder] = await db.insert(folders).values(data).returning();
+    return folder;
+  }
+
+  async updateFolder(id: string, data: Partial<InsertFolder>): Promise<Folder> {
+    const [folder] = await db
+      .update(folders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(folders.id, id))
+      .returning();
+    return folder;
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    await db.delete(folders).where(eq(folders.id, id));
+  }
+
+  async updateVideoFolder(oldFolderId: string, newFolderId: string | null): Promise<void> {
+    await db
+      .update(videoJobs)
+      .set({ folderId: newFolderId })
+      .where(eq(videoJobs.folderId, oldFolderId));
   }
 
   // Settings operations

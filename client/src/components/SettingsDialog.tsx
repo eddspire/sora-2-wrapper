@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Zap, Gauge } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -86,25 +86,37 @@ export function SettingsDialog() {
           variant="ghost"
           size="icon"
           data-testid="button-settings"
+          className="hover:bg-gray-700/50 text-gray-300 hover:text-white transition-colors"
         >
           <Settings className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent data-testid="dialog-settings">
+      <DialogContent 
+        data-testid="dialog-settings"
+        className="border-gray-700 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white backdrop-blur-xl max-w-lg"
+      >
         <DialogHeader>
-          <DialogTitle>Queue Settings</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-cyan-500/20 to-violet-500/20 border border-cyan-500/30">
+              <Gauge className="h-5 w-5 text-cyan-400" />
+            </div>
+            Queue Settings
+          </DialogTitle>
+          <DialogDescription className="text-gray-400 pt-2">
             Configure your OpenAI account rate limits to optimize video generation queue processing.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 py-6">
             <FormField
               control={form.control}
               name="maxConcurrentJobs"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Max Concurrent Jobs</FormLabel>
+                <FormItem className="space-y-3">
+                  <FormLabel className="text-gray-300 font-medium flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-violet-400" />
+                    Max Concurrent Jobs
+                  </FormLabel>
                   <FormControl>
                     <Input
                       data-testid="input-max-concurrent"
@@ -112,23 +124,25 @@ export function SettingsDialog() {
                       min="1"
                       disabled={isLoading || updateSettingsMutation.isPending}
                       {...field}
+                      className="rounded-xl border-gray-700/50 bg-gray-900/50 text-white placeholder:text-gray-500 focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 transition-all"
                     />
                   </FormControl>
-                  <FormDescription>
-                    Maximum number of video generation jobs to process simultaneously. 
-                    Set to 1 to avoid rate limits, or higher if your OpenAI account supports it.
+                  <FormDescription className="text-sm text-gray-400 bg-gray-800/30 border border-gray-700/30 rounded-lg p-3">
+                    <span className="font-medium text-gray-300">💡 Tip:</span> Maximum number of video generation jobs to process simultaneously. 
+                    Set to <span className="text-cyan-400 font-semibold">1</span> to avoid rate limits, or higher if your OpenAI account supports it.
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage className="text-red-400" />
                 </FormItem>
               )}
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-700/50">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setOpen(false)}
                 disabled={updateSettingsMutation.isPending}
                 data-testid="button-cancel-settings"
+                className="rounded-xl border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 hover:border-gray-600 transition-all"
               >
                 Cancel
               </Button>
@@ -136,8 +150,19 @@ export function SettingsDialog() {
                 type="submit"
                 disabled={updateSettingsMutation.isPending}
                 data-testid="button-save-settings"
+                className="rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-semibold transition-all gap-2"
               >
-                Save
+                {updateSettingsMutation.isPending ? (
+                  <>
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4" />
+                    Save Settings
+                  </>
+                )}
               </Button>
             </div>
           </form>

@@ -116,30 +116,44 @@ export default function Webhooks() {
         </div>
 
         {/* Create Webhook Card */}
-        <Card>
+        <Card className="border-gray-700/50 bg-gray-900/50 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle>Add New Webhook</CardTitle>
-            <CardDescription>Enter a URL to receive POST requests when events occur</CardDescription>
+            <CardTitle className="text-white flex items-center gap-2">
+              <WebhookIcon className="h-5 w-5 text-cyan-400" />
+              Add New Webhook
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Enter a URL to receive POST requests when events occur
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                <Globe className="h-4 w-4 text-cyan-400" />
+                Webhook URL
+              </label>
               <Input
                 data-testid="input-webhook-url"
                 type="url"
                 placeholder="https://example.com/webhook"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
+                className="mt-2 rounded-xl border-gray-700/50 bg-gray-900/50 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
               />
             </div>
             <div>
-              <p className="text-sm font-medium mb-2">Events to subscribe</p>
-              <div className="flex gap-2">
+              <p className="text-sm font-medium text-gray-300 mb-3">Events to subscribe</p>
+              <div className="flex gap-3">
                 <Button
                   data-testid="button-event-completed"
                   size="sm"
                   variant={selectedEvents.includes("completed") ? "default" : "outline"}
                   onClick={() => toggleEvent("completed")}
+                  className={selectedEvents.includes("completed") 
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 rounded-xl gap-2" 
+                    : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 hover:border-emerald-500/50 rounded-xl gap-2"}
                 >
+                  <CheckCircle className="h-3.5 w-3.5" />
                   Completed
                 </Button>
                 <Button
@@ -147,7 +161,11 @@ export default function Webhooks() {
                   size="sm"
                   variant={selectedEvents.includes("failed") ? "default" : "outline"}
                   onClick={() => toggleEvent("failed")}
+                  className={selectedEvents.includes("failed") 
+                    ? "bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white border-0 rounded-xl gap-2" 
+                    : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 hover:border-red-500/50 rounded-xl gap-2"}
                 >
+                  <XCircle className="h-3.5 w-3.5" />
                   Failed
                 </Button>
               </div>
@@ -156,7 +174,7 @@ export default function Webhooks() {
               data-testid="button-create-webhook"
               onClick={handleCreate}
               disabled={createMutation.isPending}
-              className="gap-2"
+              className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-semibold py-5 transition-all gap-2"
             >
               <Plus className="h-4 w-4" />
               Add Webhook
@@ -166,52 +184,85 @@ export default function Webhooks() {
 
         {/* Webhooks List */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Active Webhooks</h2>
+          <h2 className="text-2xl font-semibold text-white">Active Webhooks</h2>
           {isLoading ? (
-            <div className="text-center text-muted-foreground py-8">Loading webhooks...</div>
+            <div className="text-center text-gray-400 py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mb-3"></div>
+              <p>Loading webhooks...</p>
+            </div>
           ) : webhooks.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <Globe className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No webhooks configured</p>
+            <Card className="border-gray-700/50 bg-gray-900/50 backdrop-blur-xl">
+              <CardContent className="py-12 text-center text-gray-400">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="relative">
+                    <Globe className="h-16 w-16 text-gray-600" />
+                    <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl"></div>
+                  </div>
+                </div>
+                <p className="text-lg font-medium text-gray-300">No webhooks configured</p>
+                <p className="text-sm text-gray-500 mt-1">Add a webhook above to get started</p>
               </CardContent>
             </Card>
           ) : (
             webhooks.map((webhook) => (
-              <Card key={webhook.id}>
-                <CardContent className="py-4">
+              <Card key={webhook.id} className="border-gray-700/50 bg-gray-900/50 backdrop-blur-xl hover:border-gray-600/50 transition-all">
+                <CardContent className="py-5">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="font-mono text-sm truncate">{webhook.url}</p>
-                        <Badge variant={webhook.isActive === 1 ? "default" : "secondary"}>
-                          {webhook.isActive === 1 ? "Active" : "Inactive"}
+                      <div className="flex items-center gap-3 mb-2">
+                        <WebhookIcon className="h-4 w-4 text-cyan-400 shrink-0" />
+                        <p className="font-mono text-sm text-white truncate">{webhook.url}</p>
+                        <Badge 
+                          variant={webhook.isActive === 1 ? "default" : "secondary"}
+                          className={webhook.isActive === 1 
+                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30" 
+                            : "bg-gray-700/50 text-gray-400 border-gray-600/30"}
+                        >
+                          {webhook.isActive === 1 ? (
+                            <>
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Active
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Inactive
+                            </>
+                          )}
                         </Badge>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2 ml-7">
                         {webhook.events.map((event) => (
-                          <Badge key={event} variant="outline" className="text-xs">
+                          <Badge 
+                            key={event} 
+                            variant="outline" 
+                            className={event === "completed" 
+                              ? "text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400" 
+                              : "text-xs border-red-500/30 bg-red-500/10 text-red-400"}
+                          >
                             {event}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <Switch
                         data-testid={`switch-webhook-${webhook.id}`}
                         checked={webhook.isActive === 1}
                         onCheckedChange={(checked) =>
                           toggleMutation.mutate({ id: webhook.id, isActive: checked ? 1 : 0 })
                         }
+                        className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-cyan-500 data-[state=checked]:to-violet-500"
                       />
                       <Button
                         data-testid={`button-delete-webhook-${webhook.id}`}
                         size="sm"
                         variant="outline"
                         onClick={() => deleteMutation.mutate(webhook.id)}
-                        className="gap-1 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                        className="rounded-xl border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 transition-all gap-1.5"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
                       </Button>
                     </div>
                   </div>

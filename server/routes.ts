@@ -4,7 +4,7 @@ import multer from "multer";
 import { storage } from "./storage";
 import { queueManager } from "./queueManager";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertVideoJobSchema, insertWebhookSchema, updateSettingsSchema } from "@shared/schema";
+import { insertVideoJobSchema, insertWebhookSchema, insertFolderSchema, updateSettingsSchema } from "@shared/schema";
 import { z } from "zod";
 import { enhancePrompt } from "./promptEnhancer";
 import { requireAuth, verifyPassword } from "./auth";
@@ -321,6 +321,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting webhook:", error);
       res.status(500).json({ error: "Failed to delete webhook" });
+    }
+  });
+
+  // Folder CRUD endpoints
+  
+  // Get all folders
+  app.get("/api/folders", async (req, res) => {
+    try {
+      const folders = await storage.getAllFolders();
+      res.json(folders);
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+      res.status(500).json({ error: "Failed to fetch folders" });
+    }
+  });
+
+  // Create a new folder
+  app.post("/api/folders", async (req, res) => {
+    try {
+      const validatedData = insertFolderSchema.parse(req.body);
+      
+      // Validate parentId exists if provided
+      if (validatedData.parentId) {
+        const parentFolder = await storage.getFolder(validatedData.parentId);
+        if (!parentFolder) {
+          return res.status(400).json({ error: "Parent folder not found" });
+        }
+      }
+      
+      const folder = await storage.createFolder(validatedData);
+      res.status(201).json(folder);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error creating folder:", error);
+      res.status(500).json({ 
+        error: "Failed to create folder",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Update a folder (rename, change parent, change color)
+  app.patch("/api/folders/:id", async (req, res) => {
+    try {
+      const folder = await storage.getFolder(req.params.id);
+      if (!folder) {
+        return res.status(404).json({ error: "Folder not found" });
+      }
+
+      // Validate parentId if being changed
+      if (req.body.parentId !== undefined && req.body.parentId !== null) {
+        // Prevent circular reference
+        if (req.body.parentId === req.params.id) {
+          return res.status(400).json({ error: "Folder cannot be its own parent" });
+        }
+        
+        const parentFolder = await storage.getFolder(req.body.parentId);
+        if (!parentFolder) {
+          return res.status(400).json({ error: "Parent folder not found" });
+        }
+      }
+
+      const updatedFolder = await storage.updateFolder(req.params.id, req.body);
+      res.json(updatedFolder);
+    } catch (error) {
+      console.error("Error updating folder:", error);
+      res.status(500).json({ error: "Failed to update folder" });
+    }
+  });
+
+  // Delete a folder
+  app.delete("/api/folders/:id", async (req, res) => {
+    try {
+      const folder = await storage.getFolder(req.params.id);
+      if (!folder) {
+        return res.status(404).json({ error: "Folder not found" });
+      }
+
+      // Move videos to parent folder (or null if root folder)
+      const videosInFolder = await storage.getVideoJobsByFolder(req.params.id);
+      for (const video of videosInFolder) {
+        await storage.updateVideoJobFolder(video.id, folder.parentId || null);
+      }
+
+      // Move subfolders to parent folder (or null if root folder)
+      const allFolders = await storage.getAllFolders();
+      const subfolders = allFolders.filter(f => f.parentId === req.params.id);
+      for (const subfolder of subfolders) {
+        await storage.updateFolder(subfolder.id, { parentId: folder.parentId || null });
+      }
+
+      // Delete the folder
+      await storage.deleteFolder(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+      res.status(500).json({ error: "Failed to delete folder" });
+    }
+  });
+
+  // Move video to folder
+  app.patch("/api/videos/:id/folder", async (req, res) => {
+    try {
+      const job = await storage.getVideoJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: "Video job not found" });
+      }
+
+      const { folderId } = req.body;
+      
+      // Validate folderId exists if provided
+      if (folderId) {
+        const folder = await storage.getFolder(folderId);
+        if (!folder) {
+          return res.status(400).json({ error: "Folder not found" });
+        }
+      }
+
+      await storage.updateVideoJobFolder(req.params.id, folderId || null);
+      const updatedJob = await storage.getVideoJob(req.params.id);
+      res.json(updatedJob);
+    } catch (error) {
+      console.error("Error moving video to folder:", error);
+      res.status(500).json({ error: "Failed to move video to folder" });
     }
   });
 

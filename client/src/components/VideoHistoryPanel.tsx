@@ -1,13 +1,24 @@
 import { Button } from "@/components/ui/button";
-import { Sparkles, RefreshCw, Loader2, Trash2, DollarSign, Zap, Download, Copy, RotateCw, CheckCircle } from "lucide-react";
-import type { VideoJob } from "@shared/schema";
+import { Sparkles, RefreshCw, Loader2, Trash2, DollarSign, Zap, Download, Copy, RotateCw, CheckCircle, Folder as FolderIcon } from "lucide-react";
+import type { VideoJob, Folder } from "@shared/schema";
 import { useCallback, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { FolderSidebar } from "@/components/FolderSidebar";
+import { FolderDialog } from "@/components/FolderDialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface VideoHistoryPanelProps {
   jobs: VideoJob[];
@@ -20,7 +31,18 @@ interface VideoHistoryPanelProps {
 }
 
 export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelete, onDownload, onRemix, onRegenerate }: VideoHistoryPanelProps) {
+  const { toast } = useToast();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null | "all" | "uncategorized">("all");
+  const [folderDialogMode, setFolderDialogMode] = useState<"create" | "rename" | null>(null);
+  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>();
+  const [dialogFolderName, setDialogFolderName] = useState<string>("");
+  const [parentFolderId, setParentFolderId] = useState<string | undefined>();
+
+  // Fetch folders
+  const { data: folders = [] } = useQuery<Folder[]>({
+    queryKey: ["/api/folders"],
+  });
 
   const handlePreviewEnter = useCallback((video: HTMLVideoElement) => {
     video.currentTime = 0;
@@ -40,68 +62,237 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
-  const stats = {
-    total: jobs.length,
-    completed: jobs.filter(j => j.status === "completed").length,
-    processing: jobs.filter(j => j.status === "queued" || j.status === "in_progress").length,
-    failed: jobs.filter(j => j.status === "failed").length,
+  // Folder mutations
+  const createFolderMutation = useMutation({
+    mutationFn: async (data: { name: string; parentId?: string; color?: string }) => {
+      return await apiRequest("POST", "/api/folders", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/folders"] });
+      toast({
+        title: "Folder created",
+        description: "Your folder has been created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create folder",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const renameFolderMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      return await apiRequest("PATCH", `/api/folders/${id}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/folders"] });
+      toast({
+        title: "Folder renamed",
+        description: "Your folder has been renamed successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to rename folder",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/folders/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/folders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Folder deleted",
+        description: "Videos have been moved to parent folder",
+      });
+      if (selectedFolderId !== "all" && selectedFolderId !== "uncategorized") {
+        setSelectedFolderId("all");
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete folder",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const moveVideoMutation = useMutation({
+    mutationFn: async ({ videoId, folderId }: { videoId: string; folderId: string | null }) => {
+      return await apiRequest("PATCH", `/api/videos/${videoId}/folder`, { folderId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Video moved",
+        description: "Video has been moved to the selected folder",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to move video",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Folder action handlers
+  const handleCreateFolder = (parentId?: string) => {
+    setParentFolderId(parentId);
+    setCurrentFolderId(undefined);
+    setDialogFolderName("");
+    setFolderDialogMode("create");
   };
 
-  return (
-    <div className="rounded-2xl bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-gray-700/50 shadow-2xl transition-all duration-300 relative overflow-hidden">
-      <div className="relative">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-700/50">
-          <div>
-            <h2 className="text-xl font-semibold bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
-              Video History
-            </h2>
-            <div className="flex gap-4 mt-2 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                {stats.completed} completed
-              </span>
-              {stats.processing > 0 && (
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-                  {stats.processing} processing
-                </span>
-              )}
-              {stats.failed > 0 && (
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                  {stats.failed} failed
-                </span>
-              )}
-            </div>
-          </div>
-          
-          {jobs.length > 0 && (
-            <Button
-              onClick={onClearHistory}
-              variant="ghost"
-              size="sm"
-              className="rounded-lg text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-all"
-            >
-              Clear All
-            </Button>
-          )}
-        </div>
+  const handleRenameFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+      setCurrentFolderId(folderId);
+      setDialogFolderName(folder.name);
+      setFolderDialogMode("rename");
+    }
+  };
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[400px] custom-scrollbar">
-          {jobs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="relative mb-4">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-violet-500/20 blur-2xl rounded-full" />
-                <Zap className="relative h-12 w-12 text-gray-600" />
+  const handleDeleteFolder = (folderId: string) => {
+    if (confirm("Delete this folder? Videos and subfolders will be moved to the parent folder.")) {
+      deleteFolderMutation.mutate(folderId);
+    }
+  };
+
+  const handleFolderDialogSubmit = (name: string, color?: string) => {
+    if (folderDialogMode === "create") {
+      createFolderMutation.mutate({
+        name,
+        parentId: parentFolderId,
+        color,
+      });
+    } else if (folderDialogMode === "rename" && currentFolderId) {
+      renameFolderMutation.mutate({
+        id: currentFolderId,
+        name,
+      });
+    }
+  };
+
+  const handleMoveVideo = (videoId: string, folderId: string | null) => {
+    moveVideoMutation.mutate({ videoId, folderId });
+  };
+
+  // Filter jobs based on selected folder
+  const filteredJobs = selectedFolderId === "all"
+    ? jobs
+    : selectedFolderId === "uncategorized"
+    ? jobs.filter(j => !j.folderId)
+    : jobs.filter(j => j.folderId === selectedFolderId);
+
+  const stats = {
+    total: filteredJobs.length,
+    completed: filteredJobs.filter(j => j.status === "completed").length,
+    processing: filteredJobs.filter(j => j.status === "queued" || j.status === "in_progress").length,
+    failed: filteredJobs.filter(j => j.status === "failed").length,
+  };
+
+  const currentFolderName = selectedFolderId === "all"
+    ? "All Videos"
+    : selectedFolderId === "uncategorized"
+    ? "Uncategorized"
+    : folders.find(f => f.id === selectedFolderId)?.name || "Folder";
+
+  return (
+    <>
+      <FolderDialog
+        open={folderDialogMode !== null}
+        onOpenChange={(open) => !open && setFolderDialogMode(null)}
+        mode={folderDialogMode || "create"}
+        folderId={currentFolderId}
+        currentName={dialogFolderName}
+        onSubmit={handleFolderDialogSubmit}
+      />
+      
+      <div className="rounded-2xl bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-gray-700/50 shadow-2xl transition-all duration-300 relative overflow-hidden">
+        <div className="flex h-full">
+          {/* Folder Sidebar */}
+          <div className="w-64 flex-shrink-0">
+            <FolderSidebar
+              folders={folders}
+              videos={jobs}
+              selectedFolderId={selectedFolderId}
+              onSelectFolder={setSelectedFolderId}
+              onCreateFolder={handleCreateFolder}
+              onRenameFolder={handleRenameFolder}
+              onDeleteFolder={handleDeleteFolder}
+            />
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-700/50">
+              <div>
+                <h2 className="text-xl font-semibold bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
+                  {currentFolderName}
+                </h2>
+                <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    {stats.completed} completed
+                  </span>
+                  {stats.processing > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+                      {stats.processing} processing
+                    </span>
+                  )}
+                  {stats.failed > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      {stats.failed} failed
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-gray-400 font-medium">No videos yet</p>
-              <p className="text-gray-500 text-sm mt-2">Generated videos will appear here</p>
+              
+              {filteredJobs.length > 0 && selectedFolderId !== "all" && (
+                <Button
+                  onClick={() => {
+                    if (confirm(`Clear all videos in ${currentFolderName}?`)) {
+                      filteredJobs.forEach(job => onDelete(job.id));
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-lg text-gray-400 hover:text-white hover:bg-red-500/20 hover:border-red-500/30 transition-all"
+                >
+                  Clear Folder
+                </Button>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
-              {jobs.map((job) => {
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[400px] custom-scrollbar">
+              {filteredJobs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="relative mb-4">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-violet-500/20 blur-2xl rounded-full" />
+                    <Zap className="relative h-12 w-12 text-gray-600" />
+                  </div>
+                  <p className="text-gray-400 font-medium">No videos in this folder</p>
+                  <p className="text-gray-500 text-sm mt-2">Generated videos will appear here</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+                  {filteredJobs.map((job) => {
                 const isProcessing = job.status === "queued" || job.status === "in_progress";
                 const isFailed = job.status === "failed";
                 const isCompleted = job.status === "completed";
@@ -313,11 +504,13 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
                     </div>
                   </div>
                 );
-              })}
+                  })}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

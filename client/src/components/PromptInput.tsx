@@ -12,15 +12,16 @@ import { calculateVideoCost } from "@/lib/cost-utils";
 import { useToast } from "@/hooks/use-toast";
 
 interface PromptInputProps {
-  onSubmit: (prompt: string, model: string, duration: string, size: string, inputReference?: File) => void;
+  onSubmit: (prompt: string, model: string, duration: string, size: string, inputReference?: File, folderId?: string) => void;
   isLoading?: boolean;
   remixJob?: VideoJob | null;
   onRemixClear?: () => void;
   availableVideos?: VideoJob[];
   onSelectRemixSource?: (job: VideoJob) => void;
+  selectedFolderId?: string | null;
 }
 
-export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClear, availableVideos = [], onSelectRemixSource }: PromptInputProps) {
+export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClear, availableVideos = [], onSelectRemixSource, selectedFolderId }: PromptInputProps) {
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("sora-2-pro");
@@ -52,7 +53,10 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
 
   const handleSubmit = () => {
     if (prompt.trim().length >= 10) {
-      onSubmit(prompt.trim(), model, duration, size, inputReference || undefined);
+      const folderId = selectedFolderId && selectedFolderId !== "all" && selectedFolderId !== "uncategorized" 
+        ? selectedFolderId 
+        : undefined;
+      onSubmit(prompt.trim(), model, duration, size, inputReference || undefined, folderId);
       if (!remixJob) {
         setPrompt("");
         setInputReference(null);
@@ -327,7 +331,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
                   <SelectItem value="sora-2-pro" className="text-white focus:bg-violet-500/20">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-violet-400" />
-                      <span>Sora 2 Pro</span>
+                      <span>Sora 2 Pro (Fast)</span>
                       <span className="text-xs text-violet-400">Premium</span>
                     </div>
                   </SelectItem>

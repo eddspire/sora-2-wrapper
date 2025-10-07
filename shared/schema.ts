@@ -3,6 +3,16 @@ import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core"
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Folders table - stores folder hierarchy for organizing videos
+export const folders = pgTable("folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  parentId: varchar("parent_id"), // References folders.id for subfolder hierarchy
+  color: varchar("color", { length: 20 }), // Optional color for visual distinction
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Video jobs table - tracks all video generation requests
 export const videoJobs = pgTable("video_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -18,6 +28,7 @@ export const videoJobs = pgTable("video_jobs", {
   seconds: integer("seconds").notNull().default(8),
   inputReferenceUrl: text("input_reference_url"), // URL to uploaded image/video reference
   remixOfId: varchar("remix_of_id"), // ID of original video if this is a remix
+  folderId: varchar("folder_id"), // References folders.id
   costDetails: text("cost_details"), // JSON string of cost breakdown
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -31,17 +42,34 @@ export const insertVideoJobSchema = createInsertSchema(videoJobs).pick({
   seconds: true,
   inputReferenceUrl: true,
   remixOfId: true,
+  folderId: true,
 }).extend({
   prompt: z.string().min(10, "Prompt must be at least 10 characters").max(1000, "Prompt must be less than 1000 characters"),
   seconds: z.number().int().min(4).max(12),
   inputReferenceUrl: z.string().optional(),
   remixOfId: z.string().optional(),
+  folderId: z.string().optional(),
 });
 
 // Types
 export type InsertVideoJob = z.infer<typeof insertVideoJobSchema>;
 export type VideoJob = typeof videoJobs.$inferSelect;
 export type VideoJobStatus = "queued" | "in_progress" | "completed" | "failed";
+
+// Folder insert schema
+export const insertFolderSchema = createInsertSchema(folders).pick({
+  name: true,
+  parentId: true,
+  color: true,
+}).extend({
+  name: z.string().min(1, "Folder name is required").max(100, "Folder name must be less than 100 characters"),
+  parentId: z.string().optional(),
+  color: z.string().optional(),
+});
+
+// Folder types
+export type InsertFolder = z.infer<typeof insertFolderSchema>;
+export type Folder = typeof folders.$inferSelect;
 
 // Webhooks table - stores webhook configurations for job notifications
 export const webhooks = pgTable("webhooks", {

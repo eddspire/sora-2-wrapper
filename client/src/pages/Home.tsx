@@ -24,7 +24,9 @@ export default function Home() {
     refetchInterval: 3000,
   });
 
-  const handleSubmit = async (prompt: string, model: string, duration: string, size: string, inputReference?: File) => {
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  const handleSubmit = async (prompt: string, model: string, duration: string, size: string, inputReference?: File, folderId?: string) => {
     setIsGenerating(true);
     
     if (remixJob) {
@@ -100,6 +102,7 @@ export default function Home() {
           size,
           seconds: parseInt(duration, 10),
           inputReferenceUrl,
+          folderId,
         }),
       });
 
@@ -290,9 +293,13 @@ export default function Home() {
           {/* Header with Logo and Actions */}
           <div className="flex items-center justify-between gap-4 mb-2">
             <div className="flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-primary" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
-                Sora 2 Pro
+              <img 
+                src="/sora.png" 
+                alt="Sora Logo" 
+                className="w-10 h-10 rounded-xl object-contain"
+              />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
+                Sora 2 Wrapper
               </h1>
             </div>
             <div className="flex items-center gap-2">
@@ -329,6 +336,7 @@ export default function Home() {
                 onRemixClear={() => setRemixJob(null)}
                 availableVideos={jobs}
                 onSelectRemixSource={handleRemix}
+                selectedFolderId={selectedFolderId}
               />
             </div>
 
