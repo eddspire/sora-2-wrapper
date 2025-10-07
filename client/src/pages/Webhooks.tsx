@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Globe } from "lucide-react";
+import { Plus, Trash2, Globe, Webhook as WebhookIcon, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/Header";
 import type { Webhook } from "@shared/schema";
@@ -93,12 +93,24 @@ export default function Webhooks() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#1a0a2a] to-[#0a0a0a] text-white relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 z-0 opacity-20">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 right-1/4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-6000"></div>
+      </div>
+
+      {/* Grid Pattern Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none z-0" />
+
       <Header apiStatus="connected" />
-      <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-8">
+      <div className="relative z-10 max-w-4xl mx-auto p-6 md:p-8 space-y-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Webhook Settings</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-cyan-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+            Webhook Settings
+          </h1>
+          <p className="text-gray-400">
             Configure webhooks to receive notifications when videos complete or fail
           </p>
         </div>
