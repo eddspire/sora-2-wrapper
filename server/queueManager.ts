@@ -88,8 +88,47 @@ export class VideoQueueManager {
 
     console.log(`Starting video generation for job ${jobId}`);
 
+    // If there's an input reference, download it from object storage to pass to OpenAI
+    let inputReferenceBuffer: { buffer: Buffer; filename: string; contentType: string } | undefined;
+    if (job.inputReferenceUrl) {
+      try {
+        const objectStorage = new ObjectStorageService();
+        const file = await objectStorage.getObjectEntityFile(job.inputReferenceUrl);
+        const [metadata] = await file.getMetadata();
+        
+        // Download file to buffer
+        const chunks: Buffer[] = [];
+        const readStream = file.createReadStream();
+        
+        await new Promise<void>((resolve, reject) => {
+          readStream.on('data', (chunk: Buffer) => chunks.push(chunk));
+          readStream.on('end', () => resolve());
+          readStream.on('error', reject);
+        });
+        
+        const buffer = Buffer.concat(chunks);
+        
+        inputReferenceBuffer = {
+          buffer,
+          filename: metadata.name || 'reference',
+          contentType: metadata.contentType || 'application/octet-stream'
+        };
+        
+        console.log(`Downloaded input reference for job ${jobId}: ${metadata.name}`);
+      } catch (error) {
+        console.warn(`Could not download input reference for job ${jobId}:`, error);
+        // Continue without input reference
+      }
+    }
+
     // Start video generation with OpenAI
-    const video = await createVideo(job.prompt, job.model || "sora-2-pro", job.size || "1280x720", job.seconds || 8, job.inputReferenceUrl || undefined);
+    const video = await createVideo(
+      job.prompt, 
+      job.model || "sora-2-pro", 
+      job.size || "1280x720", 
+      job.seconds || 8, 
+      inputReferenceBuffer
+    );
     
     // Update job with video ID and status
     await db.update(videoJobs)
