@@ -1,15 +1,19 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { PromptInput } from "@/components/PromptInput";
 import { VideoOutput } from "@/components/VideoOutput";
 import { VideoHistoryPanel } from "@/components/VideoHistoryPanel";
 import { QueueDashboard } from "@/components/QueueDashboard";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { LogOut, Settings, Sparkles } from "lucide-react";
 import type { VideoJob } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [remixJob, setRemixJob] = useState<VideoJob | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -241,6 +245,29 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+      
+      if (response.ok) {
+        queryClient.clear();
+        setLocation("/login");
+        toast({
+          title: "Logged out",
+          description: "You have been successfully logged out",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
   const currentJob = useMemo(() => {
     if (!currentJobId) return jobs[0] || null;
     return jobs.find(j => j.id === currentJobId) || jobs[0] || null;
@@ -260,6 +287,34 @@ export default function Home() {
 
       <main className="relative flex min-h-screen flex-col p-4 md:p-6 lg:p-8">
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
+          {/* Header with Logo and Actions */}
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+                Sora 2 Pro
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLocation("/webhooks")}
+                data-testid="button-webhooks"
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+          
           {/* KPI Dashboard */}
           <QueueDashboard jobs={jobs} />
 

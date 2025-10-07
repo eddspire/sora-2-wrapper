@@ -1,14 +1,40 @@
-import { Video, Circle, Settings, Webhook } from "lucide-react";
+import { Video, Circle, Settings, Webhook, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface HeaderProps {
   apiStatus?: "connected" | "disconnected";
 }
 
 export function Header({ apiStatus = "connected" }: HeaderProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+      
+      if (response.ok) {
+        queryClient.clear();
+        setLocation("/login");
+        toast({
+          title: "Logged out",
+          description: "You have been successfully logged out",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
@@ -51,6 +77,15 @@ export function Header({ apiStatus = "connected" }: HeaderProps) {
                 {apiStatus === "connected" ? "Connected" : "Disconnected"}
               </span>
             </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
