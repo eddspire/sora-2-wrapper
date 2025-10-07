@@ -1,8 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { AlertCircle, CheckCircle, Clock, Download, Loader2, Play, Pause, Sparkles, RefreshCw, DollarSign } from "lucide-react";
-import type { VideoJob } from "@shared/schema";
+import { AlertCircle, CheckCircle, Clock, Download, Loader2, Play, Pause, Sparkles, RefreshCw, DollarSign, FolderInput } from "lucide-react";
+import type { VideoJob, Folder } from "@shared/schema";
 import { useState, useRef, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 interface VideoOutputProps {
   job: VideoJob | null;
@@ -11,6 +22,33 @@ interface VideoOutputProps {
 }
 
 export function VideoOutput({ job, onSendToRemix, onDownload }: VideoOutputProps) {
+  const { toast } = useToast();
+
+  // Fetch folders
+  const { data: folders = [] } = useQuery<Folder[]>({
+    queryKey: ["/api/folders"],
+  });
+
+  // Move video mutation
+  const moveVideoMutation = useMutation({
+    mutationFn: async ({ videoId, folderId }: { videoId: string; folderId: string | null }) => {
+      return await apiRequest("PATCH", `/api/videos/${videoId}/folder`, { folderId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Video moved",
+        description: "Video has been moved to the selected folder",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to move video",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   const getStatusBadge = () => {
     if (!job) return null;
 
@@ -163,19 +201,64 @@ export function VideoOutput({ job, onSendToRemix, onDownload }: VideoOutputProps
             <div className="flex-1 flex flex-col gap-4 min-h-0">
               <CompletedVideoPlayer videoUrl={job.videoUrl!} thumbnailUrl={job.thumbnailUrl || undefined} />
               
-              <div className="grid grid-cols-2 gap-3 shrink-0">
+              <div className="grid grid-cols-3 gap-3 shrink-0">
                 {onDownload && (
                   <Button
                     onClick={() => onDownload(job.videoUrl!, job.id)}
+                    data-testid="button-download-video"
                     className="rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-medium transition-all"
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
                 )}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      data-testid="button-move-folder-output"
+                      className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium transition-all"
+                    >
+                      <FolderInput className="mr-2 h-4 w-4" />
+                      Move To Folder
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="bg-gray-900 border-gray-700 w-56">
+                    <DropdownMenuLabel className="text-gray-300 text-xs">Move to Folder</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-gray-700" />
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        moveVideoMutation.mutate({ videoId: job.id, folderId: null });
+                      }}
+                      className="text-gray-300 hover:bg-gray-800 focus:bg-gray-800 text-xs cursor-pointer"
+                    >
+                      <div className="h-3 w-3 rounded mr-2 bg-gray-600 flex-shrink-0" />
+                      Uncategorized
+                    </DropdownMenuItem>
+                    {folders.map((folder) => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          moveVideoMutation.mutate({ videoId: job.id, folderId: folder.id });
+                        }}
+                        className="text-gray-300 hover:bg-gray-800 focus:bg-gray-800 text-xs cursor-pointer"
+                      >
+                        <div 
+                          className="h-3 w-3 rounded mr-2 flex-shrink-0"
+                          style={{ backgroundColor: folder.color || "#3b82f6" }}
+                        />
+                        {folder.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 {onSendToRemix && (
                   <Button
                     onClick={() => onSendToRemix(job)}
+                    data-testid="button-remix-video"
                     className="rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-medium transition-all"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />

@@ -225,17 +225,15 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
       <div className="rounded-2xl bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-gray-700/50 shadow-2xl transition-all duration-300 relative overflow-hidden">
         <div className="flex h-full">
           {/* Folder Sidebar */}
-          <div className="w-64 flex-shrink-0">
-            <FolderSidebar
-              folders={folders}
-              videos={jobs}
-              selectedFolderId={selectedFolderId}
-              onSelectFolder={setSelectedFolderId}
-              onCreateFolder={handleCreateFolder}
-              onRenameFolder={handleRenameFolder}
-              onDeleteFolder={handleDeleteFolder}
-            />
-          </div>
+          <FolderSidebar
+            folders={folders}
+            videos={jobs}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={setSelectedFolderId}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+          />
 
           {/* Main Content */}
           <div className="flex-1 flex flex-col">
