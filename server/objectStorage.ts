@@ -38,7 +38,18 @@ export class ObjectStorageService {
   constructor() {
     this.storage = objectStorageClient;
     this.bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID!;
-    this.privateDir = process.env.PRIVATE_OBJECT_DIR || ".private";
+    
+    // Strip bucket ID prefix from PRIVATE_OBJECT_DIR if present
+    // Replit sets it as "/bucket-id/.private" but we only need ".private"
+    let privateDir = process.env.PRIVATE_OBJECT_DIR || ".private";
+    if (privateDir.includes("/.private")) {
+      privateDir = ".private";
+    } else if (!privateDir.startsWith(".")) {
+      privateDir = "." + privateDir;
+    }
+    this.privateDir = privateDir;
+
+    console.log(`ObjectStorageService initialized: bucketId=${this.bucketId}, privateDir=${this.privateDir}`);
 
     if (!this.bucketId) {
       throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID environment variable is not set");
@@ -50,13 +61,22 @@ export class ObjectStorageService {
     const filePath = `${this.privateDir}/videos/${videoId}.mp4`;
     const file = bucket.file(filePath);
 
+    console.log(`Uploading video to bucket ${this.bucketId}, path: ${filePath}`);
+    
     await file.save(buffer, {
       metadata: {
         contentType: "video/mp4",
       },
     });
 
-    return `/objects/${filePath}`;
+    // Verify the file was saved and log the actual stored path
+    const [exists] = await file.exists();
+    console.log(`Video upload complete. Exists: ${exists}, file.name: ${file.name}`);
+    
+    // Return URL using the intended path (without bucket ID)
+    // file.name may include bucket ID with Replit's sidecar, so we use our intended path
+    const urlPath = `${this.privateDir}/videos/${videoId}.mp4`;
+    return `/objects/${urlPath}`;
   }
 
   async uploadThumbnail(videoId: string, buffer: Buffer): Promise<string> {
@@ -64,12 +84,18 @@ export class ObjectStorageService {
     const filePath = `${this.privateDir}/thumbnails/${videoId}.jpg`;
     const file = bucket.file(filePath);
 
+    console.log(`Uploading thumbnail to bucket ${this.bucketId}, path: ${filePath}`);
+    
     await file.save(buffer, {
       metadata: {
         contentType: "image/jpeg",
       },
     });
 
+    // Verify the file was saved
+    const [exists] = await file.exists();
+    console.log(`Thumbnail upload complete. Exists: ${exists}, file name: ${file.name}`);
+    
     return `/objects/${filePath}`;
   }
 
