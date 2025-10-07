@@ -311,7 +311,7 @@ export function PromptInput({ onSubmit, isLoading = false, remixJob, onRemixClea
               />
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">
-                  {charCount}/1000 {charCount >= 10 ? "✓" : "• Min 10 chars"}
+                  {charCount} chars {charCount >= 10 ? "✓" : "• Min 10 chars"}
                 </span>
                 <span className="text-gray-600">⌘ + Enter to submit</span>
               </div>
