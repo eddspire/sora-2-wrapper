@@ -64,3 +64,27 @@ export const insertWebhookSchema = createInsertSchema(webhooks).pick({
 // Webhook types
 export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
 export type Webhook = typeof webhooks.$inferSelect;
+
+// Settings table - stores application configuration
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schema for settings
+export const insertSettingSchema = createInsertSchema(settings).pick({
+  key: true,
+  value: true,
+  description: true,
+}).extend({
+  key: z.string().min(1),
+  value: z.string(),
+  description: z.string().optional(),
+});
+
+// Setting types
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
+export type Setting = typeof settings.$inferSelect;

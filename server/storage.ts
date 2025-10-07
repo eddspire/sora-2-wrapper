@@ -1,5 +1,5 @@
 // Reference: javascript_database blueprint
-import { videoJobs, webhooks, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook } from "@shared/schema";
+import { videoJobs, webhooks, settings, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook, type Setting, type InsertSetting } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -18,6 +18,11 @@ export interface IStorage {
   getActiveWebhooks(): Promise<Webhook[]>;
   updateWebhookStatus(id: string, isActive: number): Promise<Webhook>;
   deleteWebhook(id: string): Promise<void>;
+  
+  // Settings operations
+  getAllSettings(): Promise<Setting[]>;
+  getSettingByKey(key: string): Promise<Setting | undefined>;
+  upsertSetting(key: string, value: string, description?: string): Promise<Setting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -107,6 +112,44 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWebhook(id: string): Promise<void> {
     await db.delete(webhooks).where(eq(webhooks.id, id));
+  }
+
+  // Settings operations
+  async getAllSettings(): Promise<Setting[]> {
+    const allSettings = await db.select().from(settings);
+    return allSettings;
+  }
+
+  async getSettingByKey(key: string): Promise<Setting | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+    return setting || undefined;
+  }
+
+  async upsertSetting(key: string, value: string, description?: string): Promise<Setting> {
+    const existing = await this.getSettingByKey(key);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(settings)
+        .set({
+          value,
+          description: description ?? existing.description,
+          updatedAt: new Date(),
+        })
+        .where(eq(settings.key, key))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(settings)
+        .values({
+          key,
+          value,
+          description,
+        })
+        .returning();
+      return created;
+    }
   }
 }
 

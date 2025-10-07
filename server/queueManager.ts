@@ -5,6 +5,7 @@ import { createVideo, getVideoStatus, downloadVideoContent } from "./openai";
 import { ObjectStorageService } from "./objectStorage";
 import { webhookService } from "./webhookService";
 import { calculateCost } from "./costCalculator";
+import { storage } from "./storage";
 import sharp from "sharp";
 
 interface QueueJob {
@@ -15,13 +16,29 @@ interface QueueJob {
 export class VideoQueueManager {
   private queue: QueueJob[] = [];
   private processing = false;
-  private maxConcurrent = 1; // Process one at a time to respect rate limits
+  private maxConcurrent = 1; // Default: Process one at a time to respect rate limits
   private currentProcessing = 0;
   private pollInterval = 5000; // Poll every 5 seconds
 
   constructor() {
-    // Start processing queue on initialization
+    // Load settings and start processing queue
+    this.loadSettings();
     this.startProcessing();
+  }
+
+  private async loadSettings() {
+    try {
+      const maxConcurrentSetting = await storage.getSettingByKey("maxConcurrentJobs");
+      if (maxConcurrentSetting) {
+        const value = parseInt(maxConcurrentSetting.value, 10);
+        if (!isNaN(value) && value > 0) {
+          this.maxConcurrent = value;
+          console.log(`Queue manager: Max concurrent jobs set to ${this.maxConcurrent}`);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to load queue settings, using defaults:", error);
+    }
   }
 
   async addToQueue(jobId: string) {
