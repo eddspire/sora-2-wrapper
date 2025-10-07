@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Sparkles, RefreshCw, Loader2, Trash2, DollarSign, Zap, Download, Copy, RotateCw, CheckCircle, Folder as FolderIcon } from "lucide-react";
+import { Sparkles, RefreshCw, Loader2, Trash2, DollarSign, Zap, Download, Copy, RotateCw, CheckCircle, Folder as FolderIcon, FolderInput, MoreVertical } from "lucide-react";
 import type { VideoJob, Folder } from "@shared/schema";
 import { useCallback, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -18,6 +18,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 interface VideoHistoryPanelProps {
@@ -478,27 +480,74 @@ export function VideoHistoryPanel({ jobs, onSelectVideo, onClearHistory, onDelet
                             )}
                           </div>
 
-                          {/* Delete Button - Always on the right */}
-                          {(isCompleted || isFailed) && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                          {/* Right side actions */}
+                          <div className="flex items-center gap-1">
+                            {/* Move to Folder - Available for all videos */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm("Delete this video? This cannot be undone.")) {
-                                      onDelete(job.id);
-                                    }
-                                  }}
-                                  className="p-1.5 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 hover:scale-110 transition-all"
+                                  onClick={(e) => e.stopPropagation()}
+                                  data-testid={`button-move-folder-${job.id}`}
+                                  className="p-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 hover:scale-110 transition-all"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <FolderInput className="h-3.5 w-3.5" />
                                 </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white text-xs">
-                                Delete
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700 w-48">
+                                <DropdownMenuLabel className="text-gray-300 text-xs">Move to Folder</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-gray-700" />
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    moveVideoMutation.mutate({ videoId: job.id, folderId: null });
+                                  }}
+                                  className="text-gray-300 hover:bg-gray-800 focus:bg-gray-800 text-xs cursor-pointer"
+                                >
+                                  <FolderIcon className="h-3.5 w-3.5 mr-2" />
+                                  Uncategorized
+                                </DropdownMenuItem>
+                                {folders.map((folder) => (
+                                  <DropdownMenuItem
+                                    key={folder.id}
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                      moveVideoMutation.mutate({ videoId: job.id, folderId: folder.id });
+                                    }}
+                                    className="text-gray-300 hover:bg-gray-800 focus:bg-gray-800 text-xs cursor-pointer"
+                                  >
+                                    <div 
+                                      className="h-3 w-3 rounded mr-2 flex-shrink-0"
+                                      style={{ backgroundColor: folder.color || "#3b82f6" }}
+                                    />
+                                    {folder.name}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Delete Button */}
+                            {(isCompleted || isFailed) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm("Delete this video? This cannot be undone.")) {
+                                        onDelete(job.id);
+                                      }
+                                    }}
+                                    data-testid={`button-delete-${job.id}`}
+                                    className="p-1.5 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 hover:scale-110 transition-all"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white text-xs">
+                                  Delete
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                         </TooltipProvider>
                       </div>
                     </div>
