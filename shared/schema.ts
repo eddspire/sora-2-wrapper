@@ -44,7 +44,7 @@ export const insertVideoJobSchema = createInsertSchema(videoJobs).pick({
   remixOfId: true,
   folderId: true,
 }).extend({
-  prompt: z.string().min(10, "Prompt must be at least 10 characters").max(1000, "Prompt must be less than 1000 characters"),
+  prompt: z.string().min(10, "Prompt must be at least 10 characters"),
   seconds: z.number().int().min(4).max(12),
   inputReferenceUrl: z.string().optional(),
   remixOfId: z.string().optional(),
