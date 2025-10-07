@@ -10,7 +10,7 @@ export async function createVideo(prompt: string, model: string = "sora-2-pro", 
     model: model as any,
     prompt,
     size: size as any,
-    seconds: seconds as any,
+    seconds: String(seconds) as any, // Convert to string as OpenAI expects "4", "8", or "12"
   };
 
   // Add input_reference if provided
