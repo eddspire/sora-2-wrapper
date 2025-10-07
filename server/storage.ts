@@ -1,38 +1,65 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+// Reference: javascript_database blueprint
+import { videoJobs, type VideoJob, type InsertVideoJob } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Video job operations
+  createVideoJob(job: InsertVideoJob): Promise<VideoJob>;
+  getVideoJob(id: string): Promise<VideoJob | undefined>;
+  getAllVideoJobs(): Promise<VideoJob[]>;
+  updateVideoJobStatus(id: string, status: string, progress?: number, errorMessage?: string): Promise<void>;
+  updateVideoJobUrls(id: string, videoUrl: string, thumbnailUrl?: string): Promise<void>;
+  deleteVideoJob(id: string): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async createVideoJob(insertJob: InsertVideoJob): Promise<VideoJob> {
+    const [job] = await db
+      .insert(videoJobs)
+      .values({
+        ...insertJob,
+        status: "queued",
+        progress: 0,
+      })
+      .returning();
+    return job;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getVideoJob(id: string): Promise<VideoJob | undefined> {
+    const [job] = await db.select().from(videoJobs).where(eq(videoJobs.id, id));
+    return job || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getAllVideoJobs(): Promise<VideoJob[]> {
+    const jobs = await db.select().from(videoJobs).orderBy(desc(videoJobs.createdAt));
+    return jobs;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async updateVideoJobStatus(id: string, status: string, progress?: number, errorMessage?: string): Promise<void> {
+    await db.update(videoJobs)
+      .set({
+        status,
+        progress: progress ?? undefined,
+        errorMessage: errorMessage ?? undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(videoJobs.id, id));
+  }
+
+  async updateVideoJobUrls(id: string, videoUrl: string, thumbnailUrl?: string): Promise<void> {
+    await db.update(videoJobs)
+      .set({
+        videoUrl,
+        thumbnailUrl: thumbnailUrl ?? undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(videoJobs.id, id));
+  }
+
+  async deleteVideoJob(id: string): Promise<void> {
+    await db.delete(videoJobs).where(eq(videoJobs.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

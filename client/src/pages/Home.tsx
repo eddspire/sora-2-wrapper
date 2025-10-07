@@ -1,0 +1,155 @@
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Header } from "@/components/Header";
+import { PromptInput } from "@/components/PromptInput";
+import { QueueDashboard } from "@/components/QueueDashboard";
+import { VideoGrid } from "@/components/VideoGrid";
+import { useToast } from "@/hooks/use-toast";
+import type { VideoJob, InsertVideoJob } from "@shared/schema";
+
+export default function Home() {
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Fetch all video jobs
+  const { data: jobs = [], isLoading } = useQuery<VideoJob[]>({
+    queryKey: ["/api/videos"],
+    refetchInterval: 3000, // Poll every 3 seconds for updates
+  });
+
+  // Calculate queue statistics
+  const stats = {
+    queued: jobs.filter(j => j.status === "queued").length,
+    processing: jobs.filter(j => j.status === "in_progress").length,
+    completed: jobs.filter(j => j.status === "completed").length,
+    failed: jobs.filter(j => j.status === "failed").length,
+  };
+
+  // Create video job mutation
+  const createVideoMutation = useMutation({
+    mutationFn: async (data: InsertVideoJob) => {
+      return await apiRequest("POST", "/api/videos", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Video job created",
+        description: "Your video is now in the generation queue",
+      });
+      setIsGenerating(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create video job",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsGenerating(false);
+    },
+  });
+
+  // Retry failed job mutation
+  const retryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/videos/${id}/retry`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Job requeued",
+        description: "The video generation will be retried",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to retry job",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete video job mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/videos/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Video deleted",
+        description: "The video and its data have been removed",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to delete video",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (prompt: string) => {
+    setIsGenerating(true);
+    createVideoMutation.mutate({
+      prompt,
+      model: "sora-2-pro",
+      size: "1280x720",
+      seconds: "8",
+    });
+  };
+
+  const handleRetry = (id: string) => {
+    retryMutation.mutate(id);
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id);
+  };
+
+  const handleDownload = async (url: string, id: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `sora-video-${id}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      toast({
+        title: "Download started",
+        description: "Your video is being downloaded",
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: "Failed to download the video",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header apiStatus="connected" />
+      
+      <main className="pb-12">
+        <PromptInput onSubmit={handleSubmit} isLoading={isGenerating} />
+        <QueueDashboard stats={stats} />
+        <VideoGrid
+          jobs={jobs}
+          onRetry={handleRetry}
+          onDownload={handleDownload}
+          onDelete={handleDelete}
+          isLoading={isLoading}
+        />
+      </main>
+    </div>
+  );
+}

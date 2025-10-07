@@ -143,6 +143,10 @@
   --card-foreground: 0 0% 98%;
 
   --card-border: 12 8% 16%;
+  
+  --success: 142 76% 45%;
+  --warning: 38 92% 50%;
+  --error: 0 72% 51%;
 
   --sidebar: 12 8% 10%;
 
