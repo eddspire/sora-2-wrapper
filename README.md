@@ -25,10 +25,9 @@ An AI-powered video generation application built with OpenAI's Sora 2 Pro model.
 
 **🎯 For Non-Coders - Rapid Import (Easiest!)**
 
-1. Copy this repository's GitHub URL (the URL of this page)
-2. In your browser, type: `https://replit.com/` and paste the GitHub URL right after it
-3. Example: If repo is at `github.com/user/repo`, type: `https://replit.com/github.com/user/repo`
-4. Press **Enter** - Replit will automatically import everything!
+1. Click this link to automatically import: **[Import to Replit](https://replit.com/github.com/eddspire/sora-2-wrapper)**
+2. Or manually paste this URL in your browser: `https://replit.com/github.com/eddspire/sora-2-wrapper`
+3. Press **Enter** - Replit will automatically import everything!
 
 **🛠️ Alternative - Guided Import (More Control)**
 
