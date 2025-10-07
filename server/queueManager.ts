@@ -18,7 +18,9 @@ export class VideoQueueManager {
   private processing = false;
   private maxConcurrent = 1; // Default: Process one at a time to respect rate limits
   private currentProcessing = 0;
-  private pollInterval = 5000; // Poll every 5 seconds
+  // Exponential backoff polling to reduce API costs
+  private initialPollInterval = 15000; // Start at 15 seconds
+  private maxPollInterval = 60000; // Max 60 seconds between checks
 
   constructor() {
     // Load settings and start processing queue
@@ -187,13 +189,17 @@ export class VideoQueueManager {
 
     console.log(`Video generation started for job ${jobId}, OpenAI video ID: ${video.id}`);
 
-    // Poll for completion
+    // Poll for completion with exponential backoff to reduce API costs
     let attempts = 0;
-    const maxAttempts = 240; // 20 minutes max (5s * 240 = 1200s) - increased for longer videos
+    const maxAttempts = 60; // Much fewer attempts with longer intervals
+    let currentInterval = this.initialPollInterval;
 
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, this.pollInterval));
+      await new Promise(resolve => setTimeout(resolve, currentInterval));
       attempts++;
+
+      // Exponential backoff: gradually increase polling interval
+      currentInterval = Math.min(currentInterval * 1.5, this.maxPollInterval);
 
       const status = await getVideoStatus(video.id);
       
@@ -206,7 +212,7 @@ export class VideoQueueManager {
         })
         .where(eq(videoJobs.id, jobId));
 
-      console.log(`Job ${jobId} progress: ${progress}%, status: ${status.status}`);
+      console.log(`Job ${jobId} progress: ${progress}%, status: ${status.status}, next check in ${Math.round(currentInterval/1000)}s`);
 
       if (status.status === "completed") {
         console.log(`Job ${jobId} completed, downloading video...`);
@@ -331,7 +337,7 @@ export class VideoQueueManager {
       console.error(`Final status check failed for job ${jobId}:`, finalCheckError);
     }
 
-    throw new Error(`Video generation timed out after ${maxAttempts * this.pollInterval / 1000 / 60} minutes. The video may still be processing on OpenAI's side.`);
+    throw new Error(`Video generation timed out. The video may still be processing on OpenAI's side - check your OpenAI dashboard.`);
   }
 
   getQueueLength(): number {
