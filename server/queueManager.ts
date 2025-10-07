@@ -3,6 +3,7 @@ import { videoJobs } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { createVideo, getVideoStatus, downloadVideoContent } from "./openai";
 import { ObjectStorageService } from "./objectStorage";
+import { webhookService } from "./webhookService";
 
 interface QueueJob {
   id: string;
@@ -63,6 +64,12 @@ export class VideoQueueManager {
             updatedAt: new Date(),
           })
           .where(eq(videoJobs.id, job.id));
+        
+        // Trigger webhooks for failed job
+        const [failedJob] = await db.select().from(videoJobs).where(eq(videoJobs.id, job.id));
+        if (failedJob) {
+          await webhookService.triggerWebhooks("failed", failedJob);
+        }
       }
     } finally {
       this.currentProcessing--;
@@ -150,6 +157,13 @@ export class VideoQueueManager {
             .where(eq(videoJobs.id, jobId));
 
           console.log(`Job ${jobId} successfully completed and stored`);
+          
+          // Trigger webhooks for completed job
+          const [completedJob] = await db.select().from(videoJobs).where(eq(videoJobs.id, jobId));
+          if (completedJob) {
+            await webhookService.triggerWebhooks("completed", completedJob);
+          }
+          
           return;
         } catch (storageError) {
           console.error(`Error storing video for job ${jobId}:`, storageError);
@@ -157,6 +171,22 @@ export class VideoQueueManager {
         }
       } else if (status.status === "failed") {
         const errorMsg = (status as any).error?.message || "Video generation failed";
+        
+        // Mark as failed in database
+        await db.update(videoJobs)
+          .set({
+            status: "failed",
+            errorMessage: errorMsg,
+            updatedAt: new Date(),
+          })
+          .where(eq(videoJobs.id, jobId));
+        
+        // Trigger webhooks for failed job
+        const [failedJob] = await db.select().from(videoJobs).where(eq(videoJobs.id, jobId));
+        if (failedJob) {
+          await webhookService.triggerWebhooks("failed", failedJob);
+        }
+        
         throw new Error(errorMsg);
       }
     }

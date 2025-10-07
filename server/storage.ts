@@ -1,5 +1,5 @@
 // Reference: javascript_database blueprint
-import { videoJobs, type VideoJob, type InsertVideoJob } from "@shared/schema";
+import { videoJobs, webhooks, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -11,6 +11,13 @@ export interface IStorage {
   updateVideoJobStatus(id: string, status: string, progress?: number, errorMessage?: string): Promise<void>;
   updateVideoJobUrls(id: string, videoUrl: string, thumbnailUrl?: string): Promise<void>;
   deleteVideoJob(id: string): Promise<void>;
+  
+  // Webhook operations
+  createWebhook(webhook: InsertWebhook): Promise<Webhook>;
+  getAllWebhooks(): Promise<Webhook[]>;
+  getActiveWebhooks(): Promise<Webhook[]>;
+  updateWebhookStatus(id: string, isActive: number): Promise<Webhook>;
+  deleteWebhook(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -59,6 +66,47 @@ export class DatabaseStorage implements IStorage {
 
   async deleteVideoJob(id: string): Promise<void> {
     await db.delete(videoJobs).where(eq(videoJobs.id, id));
+  }
+
+  // Webhook operations
+  async createWebhook(insertWebhook: InsertWebhook): Promise<Webhook> {
+    const [webhook] = await db
+      .insert(webhooks)
+      .values({
+        ...insertWebhook,
+        isActive: insertWebhook.isActive ?? 1,
+      })
+      .returning();
+    return webhook;
+  }
+
+  async getAllWebhooks(): Promise<Webhook[]> {
+    const allWebhooks = await db.select().from(webhooks).orderBy(desc(webhooks.createdAt));
+    return allWebhooks;
+  }
+
+  async getActiveWebhooks(): Promise<Webhook[]> {
+    const activeWebhooks = await db
+      .select()
+      .from(webhooks)
+      .where(eq(webhooks.isActive, 1));
+    return activeWebhooks;
+  }
+
+  async updateWebhookStatus(id: string, isActive: number): Promise<Webhook> {
+    const [webhook] = await db
+      .update(webhooks)
+      .set({
+        isActive,
+        updatedAt: new Date(),
+      })
+      .where(eq(webhooks.id, id))
+      .returning();
+    return webhook;
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    await db.delete(webhooks).where(eq(webhooks.id, id));
   }
 }
 

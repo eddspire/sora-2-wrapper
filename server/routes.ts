@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { queueManager } from "./queueManager";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertVideoJobSchema } from "@shared/schema";
+import { insertVideoJobSchema, insertWebhookSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -150,6 +150,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting queue status:", error);
       res.status(500).json({ error: "Failed to get queue status" });
+    }
+  });
+
+  // Webhook CRUD endpoints
+  
+  // Get all webhooks
+  app.get("/api/webhooks", async (req, res) => {
+    try {
+      const webhooks = await storage.getAllWebhooks();
+      res.json(webhooks);
+    } catch (error) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ error: "Failed to fetch webhooks" });
+    }
+  });
+
+  // Create a new webhook
+  app.post("/api/webhooks", async (req, res) => {
+    try {
+      const validatedData = insertWebhookSchema.parse(req.body);
+      const webhook = await storage.createWebhook(validatedData);
+      res.status(201).json(webhook);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error creating webhook:", error);
+      res.status(500).json({ 
+        error: "Failed to create webhook",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Update webhook active status
+  app.patch("/api/webhooks/:id", async (req, res) => {
+    try {
+      const { isActive } = req.body;
+      const webhook = await storage.updateWebhookStatus(req.params.id, isActive);
+      res.json(webhook);
+    } catch (error) {
+      console.error("Error updating webhook:", error);
+      res.status(500).json({ error: "Failed to update webhook" });
+    }
+  });
+
+  // Delete a webhook
+  app.delete("/api/webhooks/:id", async (req, res) => {
+    try {
+      await storage.deleteWebhook(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ error: "Failed to delete webhook" });
     }
   });
 

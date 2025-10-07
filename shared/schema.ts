@@ -34,3 +34,28 @@ export const insertVideoJobSchema = createInsertSchema(videoJobs).pick({
 export type InsertVideoJob = z.infer<typeof insertVideoJobSchema>;
 export type VideoJob = typeof videoJobs.$inferSelect;
 export type VideoJobStatus = "queued" | "in_progress" | "completed" | "failed";
+
+// Webhooks table - stores webhook configurations for job notifications
+export const webhooks = pgTable("webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  url: text("url").notNull(),
+  events: text("events").array().notNull().default(sql`ARRAY['completed', 'failed']::text[]`), // Events to trigger on
+  isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = inactive (using integer for boolean)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for webhooks
+export const insertWebhookSchema = createInsertSchema(webhooks).pick({
+  url: true,
+  events: true,
+  isActive: true,
+}).extend({
+  url: z.string().url("Must be a valid URL"),
+  events: z.array(z.enum(["completed", "failed"])).min(1, "Select at least one event"),
+  isActive: z.number().min(0).max(1).optional(),
+});
+
+// Webhook types
+export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
+export type Webhook = typeof webhooks.$inferSelect;
