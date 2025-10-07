@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is an AI video generation application that uses OpenAI's Sora 2 Pro model to create videos from text prompts. Users can submit video generation requests, which are queued and processed asynchronously. The application provides real-time status updates and allows users to view, download, and manage their generated videos.
+This is an AI video generation application that uses OpenAI's Sora 2 Pro model to create videos from text prompts. Users can submit video generation requests, which are queued and processed asynchronously. The application provides real-time status updates and allows users to view, download, and manage their generated videos. The application is open access with no authentication required.
 
 ## User Preferences
 

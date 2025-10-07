@@ -53,9 +53,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ authenticated: req.session?.authenticated === true });
   });
   
-  // Protected routes - all API routes below require authentication
-  app.use("/api", requireAuth);
-  
   // Create a new video job
   app.post("/api/videos", async (req, res) => {
     try {
