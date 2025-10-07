@@ -189,7 +189,7 @@ export class VideoQueueManager {
 
     // Poll for completion
     let attempts = 0;
-    const maxAttempts = 120; // 10 minutes max (5s * 120 = 600s)
+    const maxAttempts = 240; // 20 minutes max (5s * 240 = 1200s) - increased for longer videos
 
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, this.pollInterval));
@@ -281,7 +281,57 @@ export class VideoQueueManager {
       }
     }
 
-    throw new Error("Video generation timed out");
+    // Timeout reached - do one final check before giving up
+    console.warn(`Job ${jobId} polling timeout reached after ${maxAttempts} attempts`);
+    
+    try {
+      const finalStatus = await getVideoStatus(video.id);
+      if (finalStatus.status === "completed") {
+        console.log(`Job ${jobId} completed during timeout - recovering...`);
+        
+        // Download and complete the video
+        const objectStorage = new ObjectStorageService();
+        const videoContent = await downloadVideoContent(video.id, "video");
+        const videoBuffer = Buffer.from(await videoContent.arrayBuffer());
+        const videoUrl = await objectStorage.uploadVideo(jobId, videoBuffer);
+
+        let thumbnailUrl: string | undefined;
+        try {
+          const thumbnailContent = await downloadVideoContent(video.id, "thumbnail");
+          const thumbnailBuffer = Buffer.from(await thumbnailContent.arrayBuffer());
+          thumbnailUrl = await objectStorage.uploadThumbnail(jobId, thumbnailBuffer);
+        } catch (thumbError) {
+          console.warn(`Could not download thumbnail for job ${jobId}:`, thumbError);
+        }
+
+        const costBreakdown = calculateCost(job.model || "sora-2-pro", job.size || "1280x720", job.seconds || 8);
+        const costDetails = JSON.stringify(costBreakdown);
+
+        await db.update(videoJobs)
+          .set({
+            status: "completed",
+            progress: 100,
+            videoUrl,
+            thumbnailUrl,
+            costDetails,
+            updatedAt: new Date(),
+          })
+          .where(eq(videoJobs.id, jobId));
+
+        console.log(`Job ${jobId} recovered after timeout`);
+        
+        const [completedJob] = await db.select().from(videoJobs).where(eq(videoJobs.id, jobId));
+        if (completedJob) {
+          await webhookService.triggerWebhooks("completed", completedJob);
+        }
+        
+        return;
+      }
+    } catch (finalCheckError) {
+      console.error(`Final status check failed for job ${jobId}:`, finalCheckError);
+    }
+
+    throw new Error(`Video generation timed out after ${maxAttempts * this.pollInterval / 1000 / 60} minutes. The video may still be processing on OpenAI's side.`);
   }
 
   getQueueLength(): number {
