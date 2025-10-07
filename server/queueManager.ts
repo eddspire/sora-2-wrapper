@@ -131,8 +131,15 @@ export class VideoQueueManager {
     } else {
       // Check if this is a remix job
       if (job.remixOfId) {
-        console.log(`Creating REMIX on OpenAI for job ${jobId} - remixing video ${job.remixOfId}`);
-        video = await remixVideo(job.remixOfId, job.prompt);
+        // Get the source video job to retrieve OpenAI's video ID
+        const [sourceJob] = await db.select().from(videoJobs).where(eq(videoJobs.id, job.remixOfId));
+        
+        if (!sourceJob || !sourceJob.videoId) {
+          throw new Error(`Source video ${job.remixOfId} not found or doesn't have a videoId`);
+        }
+        
+        console.log(`Creating REMIX on OpenAI for job ${jobId} - remixing OpenAI video ${sourceJob.videoId} (from source job ${job.remixOfId})`);
+        video = await remixVideo(sourceJob.videoId, job.prompt);
         
         // Update job with video ID and status
         await db.update(videoJobs)
