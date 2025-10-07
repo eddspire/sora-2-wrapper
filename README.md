@@ -21,16 +21,29 @@ An AI-powered video generation application built with OpenAI's Sora 2 Pro model.
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Step 1: Import to Replit (Choose One Method)
 
-- Replit account (or Node.js 18+ for local development)
-- OpenAI API key with Sora 2 access
-- Anthropic API key for prompt enhancement
+**🎯 For Non-Coders - Rapid Import (Easiest!)**
 
-### One-Click Setup on Replit
+1. Copy this repository's GitHub URL (the URL of this page)
+2. In your browser, type: `https://replit.com/` and paste the GitHub URL right after it
+3. Example: If repo is at `github.com/user/repo`, type: `https://replit.com/github.com/user/repo`
+4. Press **Enter** - Replit will automatically import everything!
 
-1. **Import to Replit** - Fork or import this repository to Replit
-2. **Run Setup** - Open Replit Agent and paste this prompt:
+**🛠️ Alternative - Guided Import (More Control)**
+
+1. Go to: [replit.com/import](https://replit.com/import)
+2. Click **GitHub** as the import source
+3. Connect your GitHub account (if not already connected)
+4. Select this repository from your list
+5. Click **Import** to begin
+
+### Step 2: Automatic Setup with Replit Agent
+
+Once imported, the magic happens:
+
+1. **Open Replit Agent** (AI icon in the sidebar)
+2. **Paste this setup prompt:**
 
 ```
 Please set up this Sora 2 Pro Video Generator application for me:
@@ -46,10 +59,18 @@ Please set up this Sora 2 Pro Video Generator application for me:
 After setup is complete, let me know the app is ready to use!
 ```
 
-3. **Provide API Keys** - Enter your OpenAI and Anthropic API keys when prompted
-4. **Start Creating** - Your app is ready! Open it and start generating videos
+3. **Provide API Keys** - Agent will ask for your OpenAI and Anthropic API keys (see below for how to get them)
+4. **Done!** - Agent creates database, storage, and starts your app automatically
 
-### Local Development
+### Prerequisites
+
+- Replit account (free tier works!)
+- OpenAI API key with Sora 2 access
+- Anthropic API key for prompt enhancement
+
+### For Developers - Local Setup
+
+**Note:** Running locally requires PostgreSQL database + Google Cloud Storage setup.
 
 ```bash
 # Install dependencies
