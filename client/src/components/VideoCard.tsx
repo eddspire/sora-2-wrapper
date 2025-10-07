@@ -202,20 +202,34 @@ export function VideoCard({ job, onRetry, onDownload, onDelete, onRegenerate, on
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground font-mono">
-          {(() => {
-            // Calculate aspect ratio from size
-            const sizeMatch = job.size?.match(/^(\d+)x(\d+)$/);
-            if (sizeMatch) {
-              const width = parseInt(sizeMatch[1]);
-              const height = parseInt(sizeMatch[2]);
-              const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
-              const divisor = gcd(width, height);
-              const ratio = `${width/divisor}:${height/divisor}`;
-              return `${ratio} ${job.size}`;
-            }
-            return job.size;
-          })()} • {job.seconds}s
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="text-xs text-muted-foreground font-mono">
+            {(() => {
+              // Calculate aspect ratio from size
+              const sizeMatch = job.size?.match(/^(\d+)x(\d+)$/);
+              if (sizeMatch) {
+                const width = parseInt(sizeMatch[1]);
+                const height = parseInt(sizeMatch[2]);
+                const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+                const divisor = gcd(width, height);
+                const ratio = `${width/divisor}:${height/divisor}`;
+                return `${ratio} ${job.size}`;
+              }
+              return job.size;
+            })()} • {job.seconds}s
+          </div>
+          {job.costDetails && job.status === "completed" && (
+            <div data-testid={`text-cost-${job.id}`} className="text-xs font-medium text-primary">
+              {(() => {
+                try {
+                  const cost = JSON.parse(job.costDetails);
+                  return `$${cost.totalCost.toFixed(2)}`;
+                } catch {
+                  return null;
+                }
+              })()}
+            </div>
+          )}
         </div>
       </div>
     </div>

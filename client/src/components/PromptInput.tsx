@@ -18,9 +18,13 @@ interface PromptInputProps {
 }
 
 const ASPECT_RATIOS = {
-  "16:9": { label: "16:9 Landscape", size: "1280x720" },
-  "9:16": { label: "9:16 Portrait", size: "720x1280" },
-  "1:1": { label: "1:1 Square", size: "1080x1080" },
+  "16:9": { label: "16:9 Landscape (720p)", size: "1280x720", proOnly: false },
+  "9:16": { label: "9:16 Portrait (720p)", size: "720x1280", proOnly: false },
+  "1:1": { label: "1:1 Square", size: "1080x1080", proOnly: false },
+  "16:9-1080p": { label: "16:9 Landscape (1080p)", size: "1920x1080", proOnly: true },
+  "9:16-1080p": { label: "9:16 Portrait (1080p)", size: "1080x1920", proOnly: true },
+  "9:16-vertical": { label: "9:16 Vertical (1080p)", size: "1024x1792", proOnly: true },
+  "16:9-horizontal": { label: "16:9 Horizontal (1080p)", size: "1792x1024", proOnly: true },
 } as const;
 
 const DURATIONS = [
@@ -63,6 +67,15 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJ
       setPrompt("");
     }
   }, [remixJob]);
+
+  // Auto-switch aspect ratio if Pro-only resolution is selected with sora-2 model
+  useEffect(() => {
+    const currentRatio = ASPECT_RATIOS[aspectRatio];
+    if (currentRatio.proOnly && model === "sora-2") {
+      // Switch to 16:9 720p as default
+      setAspectRatio("16:9");
+    }
+  }, [model, aspectRatio]);
 
   const handleSubmit = () => {
     if (mode === "single") {
@@ -227,15 +240,26 @@ export function PromptInput({ onSubmit, onBatchSubmit, isLoading = false, remixJ
                     <Maximize2 className="h-4 w-4 text-muted-foreground" />
                     <label className="text-sm font-medium text-foreground">Aspect Ratio</label>
                     <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as keyof typeof ASPECT_RATIOS)}>
-                      <SelectTrigger data-testid="select-aspect-ratio" className="w-[160px]">
+                      <SelectTrigger data-testid="select-aspect-ratio" className="w-[180px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(ASPECT_RATIOS).map(([key, value]) => (
-                          <SelectItem key={key} value={key} data-testid={`option-aspect-${key}`}>
-                            <span>{value.label}</span>
-                          </SelectItem>
-                        ))}
+                        {Object.entries(ASPECT_RATIOS).map(([key, value]) => {
+                          const isDisabled = value.proOnly && model === "sora-2";
+                          return (
+                            <SelectItem 
+                              key={key} 
+                              value={key} 
+                              data-testid={`option-aspect-${key}`}
+                              disabled={isDisabled}
+                            >
+                              <span className={isDisabled ? "opacity-50" : ""}>
+                                {value.label}
+                                {value.proOnly && <span className="ml-2 text-xs text-primary">Pro</span>}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>

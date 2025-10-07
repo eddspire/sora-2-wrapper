@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { createVideo, getVideoStatus, downloadVideoContent } from "./openai";
 import { ObjectStorageService } from "./objectStorage";
 import { webhookService } from "./webhookService";
+import { calculateCost } from "./costCalculator";
 
 interface QueueJob {
   id: string;
@@ -145,6 +146,10 @@ export class VideoQueueManager {
             console.warn(`Could not download thumbnail for job ${jobId}:`, thumbError);
           }
 
+          // Calculate cost
+          const costBreakdown = calculateCost(job.model || "sora-2-pro", job.size || "1280x720", job.seconds || 8);
+          const costDetails = JSON.stringify(costBreakdown);
+
           // Update job as completed
           await db.update(videoJobs)
             .set({
@@ -152,6 +157,7 @@ export class VideoQueueManager {
               progress: 100,
               videoUrl,
               thumbnailUrl,
+              costDetails,
               updatedAt: new Date(),
             })
             .where(eq(videoJobs.id, jobId));

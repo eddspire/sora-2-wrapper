@@ -43,12 +43,26 @@ export default function Home() {
   }, [jobs, searchQuery, statusFilter]);
 
   // Calculate queue statistics (from all jobs, not filtered)
-  const stats = {
-    queued: jobs.filter(j => j.status === "queued").length,
-    processing: jobs.filter(j => j.status === "in_progress").length,
-    completed: jobs.filter(j => j.status === "completed").length,
-    failed: jobs.filter(j => j.status === "failed").length,
-  };
+  const stats = useMemo(() => {
+    const queued = jobs.filter(j => j.status === "queued").length;
+    const processing = jobs.filter(j => j.status === "in_progress").length;
+    const completed = jobs.filter(j => j.status === "completed").length;
+    const failed = jobs.filter(j => j.status === "failed").length;
+    
+    // Calculate total cost from completed jobs only
+    const totalCost = jobs
+      .filter(j => j.status === "completed" && j.costDetails)
+      .reduce((sum, job) => {
+        try {
+          const cost = JSON.parse(job.costDetails!);
+          return sum + (cost.totalCost || 0);
+        } catch {
+          return sum;
+        }
+      }, 0);
+    
+    return { queued, processing, completed, failed, totalCost };
+  }, [jobs]);
 
   // Create video job mutation
   const createVideoMutation = useMutation({
