@@ -8,7 +8,7 @@ import { VideoHistoryPanel } from "@/components/VideoHistoryPanel";
 import { QueueDashboard } from "@/components/QueueDashboard";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { LogOut, Settings, Sparkles } from "lucide-react";
+import { LogOut, Settings, Sparkles, Film } from "lucide-react";
 import type { VideoJob } from "@shared/schema";
 
 export default function Home() {
@@ -303,6 +303,15 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLocation("/chain")}
+                data-testid="button-chain"
+                title="Chain Video Generation"
+              >
+                <Film className="w-5 h-5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

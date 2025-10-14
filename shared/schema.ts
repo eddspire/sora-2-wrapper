@@ -133,3 +133,62 @@ export const updateSettingsSchema = z.object({
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type UpdateSettings = z.infer<typeof updateSettingsSchema>;
 export type Setting = typeof settings.$inferSelect;
+
+// Session table - managed by connect-pg-simple for Express sessions
+// This table is automatically created and managed by the session store
+export const session = pgTable("session", {
+  sid: varchar("sid", { length: 255 }).primaryKey(),
+  sess: text("sess").notNull(), // JSON session data
+  expire: timestamp("expire", { precision: 6, mode: 'date' }).notNull(),
+});
+
+// Chain jobs table - tracks long-form chained video generation
+export const chainJobs = pgTable("chain_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  basePrompt: text("base_prompt").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("queued"), // queued, planning, generating, concatenating, completed, failed
+  progress: integer("progress").default(0), // 0-100
+  
+  // Configuration
+  totalDuration: integer("total_duration").notNull(), // Total seconds (e.g., 24)
+  secondsPerSegment: integer("seconds_per_segment").notNull(), // 4, 8, or 12
+  numSegments: integer("num_segments").notNull(), // Calculated: totalDuration / secondsPerSegment
+  model: varchar("model", { length: 50 }).notNull().default("sora-2-pro"),
+  size: varchar("size", { length: 20 }).default("1280x720"),
+  
+  // Results
+  planJson: text("plan_json"), // Serialized SegmentPlan[] JSON
+  segmentJobIds: text("segment_job_ids").array().default(sql`ARRAY[]::text[]`), // Array of video_jobs.id references
+  finalVideoUrl: text("final_video_url"), // URL to final concatenated video
+  thumbnailUrl: text("thumbnail_url"), // URL to final video thumbnail
+  errorMessage: text("error_message"),
+  costDetails: text("cost_details"), // JSON string of cost breakdown
+  
+  folderId: varchar("folder_id"), // References folders.id
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schema for chain jobs
+export const insertChainJobSchema = createInsertSchema(chainJobs).pick({
+  basePrompt: true,
+  totalDuration: true,
+  secondsPerSegment: true,
+  numSegments: true,
+  model: true,
+  size: true,
+  folderId: true,
+}).extend({
+  basePrompt: z.string().min(20, "Base prompt must be at least 20 characters"),
+  totalDuration: z.number().int().min(8).max(120),
+  secondsPerSegment: z.union([z.literal(4), z.literal(8), z.literal(12)]),
+  numSegments: z.number().int().min(2).max(15),
+  model: z.enum(["sora-2", "sora-2-pro"]),
+  size: z.string(),
+  folderId: z.string().optional(),
+});
+
+// Chain job types
+export type InsertChainJob = z.infer<typeof insertChainJobSchema>;
+export type ChainJob = typeof chainJobs.$inferSelect;
+export type ChainJobStatus = "queued" | "planning" | "generating" | "concatenating" | "completed" | "failed";

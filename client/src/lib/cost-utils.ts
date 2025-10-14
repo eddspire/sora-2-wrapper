@@ -72,3 +72,48 @@ export function calculateVideoCost(usage: VideoUsage | undefined | null): CostDe
         totalCost: costRounded
     };
 }
+
+export type ChainCostDetails = {
+    model: string;
+    resolution: string;
+    numSegments: number;
+    secondsPerSegment: number;
+    totalDuration: number;
+    pricePerSegment: number;
+    totalCost: number;
+};
+
+/**
+ * Calculates the cost of a chained video generation
+ * 
+ * @param numSegments - Number of segments in the chain
+ * @param model - Model to use (sora-2 or sora-2-pro)
+ * @param size - Resolution (e.g., "1280x720")
+ * @param secondsPerSegment - Duration of each segment (4, 8, or 12)
+ * @returns ChainCostDetails object or null if data is invalid
+ */
+export function calculateChainCost(
+    numSegments: number,
+    model: 'sora-2' | 'sora-2-pro',
+    size: string,
+    secondsPerSegment: number
+): ChainCostDetails | null {
+    // Calculate cost for a single segment
+    const segmentCost = calculateVideoCost({ model, size, seconds: secondsPerSegment });
+    
+    if (!segmentCost) {
+        return null;
+    }
+    
+    const totalCost = segmentCost.totalCost * numSegments;
+    
+    return {
+        model,
+        resolution: size,
+        numSegments,
+        secondsPerSegment,
+        totalDuration: numSegments * secondsPerSegment,
+        pricePerSegment: segmentCost.totalCost,
+        totalCost: Math.round(totalCost * 100) / 100
+    };
+}

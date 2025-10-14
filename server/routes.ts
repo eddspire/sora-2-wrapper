@@ -3,8 +3,9 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
 import { queueManager } from "./queueManager";
+import { chainQueueManager } from "./chain/chainManager";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertVideoJobSchema, insertWebhookSchema, insertFolderSchema, updateSettingsSchema } from "@shared/schema";
+import { insertVideoJobSchema, insertWebhookSchema, insertFolderSchema, updateSettingsSchema, insertChainJobSchema } from "@shared/schema";
 import { z } from "zod";
 import { enhancePrompt } from "./promptEnhancer";
 import { requireAuth, verifyPassword } from "./auth";
@@ -542,6 +543,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to enhance prompt",
         message: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  // Chain video generation endpoints
+  
+  // Create a new chain job
+  app.post("/api/chains", async (req, res) => {
+    try {
+      const { basePrompt, totalDuration, secondsPerSegment, model, size, folderId } = req.body;
+      
+      // Calculate number of segments
+      const numSegments = Math.floor(totalDuration / secondsPerSegment);
+      
+      // Validate
+      if (numSegments < 2) {
+        return res.status(400).json({ error: "Chain must have at least 2 segments" });
+      }
+      if (numSegments > 15) {
+        return res.status(400).json({ error: "Chain cannot exceed 15 segments" });
+      }
+      if (totalDuration % secondsPerSegment !== 0) {
+        return res.status(400).json({ error: "Total duration must be divisible by segment length" });
+      }
+      
+      // Validate model supports resolution
+      if (model === "sora-2" && size !== "1280x720" && size !== "720x1280") {
+        return res.status(400).json({ error: "sora-2 only supports 720p resolution" });
+      }
+      
+      const validatedData = insertChainJobSchema.parse({
+        basePrompt,
+        totalDuration,
+        secondsPerSegment,
+        numSegments,
+        model,
+        size,
+        folderId,
+      });
+      
+      // Create chain job in database
+      const chainJob = await storage.createChainJob(validatedData);
+      
+      // Add to chain queue for processing
+      await chainQueueManager.addToQueue(chainJob.id);
+      
+      res.status(201).json(chainJob);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation error", 
+          details: error.errors 
+        });
+      }
+      console.error("Error creating chain job:", error);
+      res.status(500).json({ 
+        error: "Failed to create chain job",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get all chain jobs
+  app.get("/api/chains", async (req, res) => {
+    try {
+      const chains = await storage.getAllChainJobs();
+      res.json(chains);
+    } catch (error) {
+      console.error("Error fetching chain jobs:", error);
+      res.status(500).json({ error: "Failed to fetch chain jobs" });
+    }
+  });
+
+  // Get a specific chain job
+  app.get("/api/chains/:id", async (req, res) => {
+    try {
+      const chain = await storage.getChainJob(req.params.id);
+      if (!chain) {
+        return res.status(404).json({ error: "Chain job not found" });
+      }
+      res.json(chain);
+    } catch (error) {
+      console.error("Error fetching chain job:", error);
+      res.status(500).json({ error: "Failed to fetch chain job" });
+    }
+  });
+
+  // Retry a failed chain job
+  app.post("/api/chains/:id/retry", async (req, res) => {
+    try {
+      const chain = await storage.getChainJob(req.params.id);
+      if (!chain) {
+        return res.status(404).json({ error: "Chain job not found" });
+      }
+
+      if (chain.status !== "failed") {
+        return res.status(400).json({ error: "Only failed chains can be retried" });
+      }
+
+      // Reset chain status to queued
+      await storage.updateChainJobStatus(chain.id, "queued", 0);
+      
+      // Add back to queue
+      await chainQueueManager.addToQueue(chain.id);
+
+      const updatedChain = await storage.getChainJob(chain.id);
+      res.json(updatedChain);
+    } catch (error) {
+      console.error("Error retrying chain job:", error);
+      res.status(500).json({ error: "Failed to retry chain job" });
+    }
+  });
+
+  // Delete a chain job
+  app.delete("/api/chains/:id", async (req, res) => {
+    try {
+      const chain = await storage.getChainJob(req.params.id);
+      if (!chain) {
+        return res.status(404).json({ error: "Chain job not found" });
+      }
+
+      // Delete final video and thumbnail from object storage if they exist
+      if (chain.finalVideoUrl || chain.thumbnailUrl) {
+        const objectStorageService = new ObjectStorageService();
+        
+        try {
+          if (chain.finalVideoUrl) {
+            const videoFile = await objectStorageService.getObjectEntityFile(chain.finalVideoUrl);
+            await videoFile.delete();
+          }
+        } catch (error) {
+          console.warn("Could not delete chain video file:", error);
+        }
+
+        try {
+          if (chain.thumbnailUrl) {
+            const thumbnailFile = await objectStorageService.getObjectEntityFile(chain.thumbnailUrl);
+            await thumbnailFile.delete();
+          }
+        } catch (error) {
+          console.warn("Could not delete chain thumbnail file:", error);
+        }
+      }
+
+      // Delete from database
+      await storage.deleteChainJob(req.params.id);
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting chain job:", error);
+      res.status(500).json({ error: "Failed to delete chain job" });
+    }
+  });
+
+  // Get chain queue status
+  app.get("/api/chains/queue/status", async (req, res) => {
+    try {
+      const queueLength = chainQueueManager.getQueueLength();
+      res.json({ queueLength });
+    } catch (error) {
+      console.error("Error getting chain queue status:", error);
+      res.status(500).json({ error: "Failed to get chain queue status" });
     }
   });
 

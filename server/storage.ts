@@ -1,5 +1,5 @@
 // Reference: javascript_database blueprint
-import { videoJobs, webhooks, settings, folders, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook, type Setting, type InsertSetting, type Folder, type InsertFolder } from "@shared/schema";
+import { videoJobs, webhooks, settings, folders, chainJobs, type VideoJob, type InsertVideoJob, type Webhook, type InsertWebhook, type Setting, type InsertSetting, type Folder, type InsertFolder, type ChainJob, type InsertChainJob } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, isNull } from "drizzle-orm";
 
@@ -32,6 +32,15 @@ export interface IStorage {
   getAllSettings(): Promise<Setting[]>;
   getSettingByKey(key: string): Promise<Setting | undefined>;
   upsertSetting(key: string, value: string, description?: string): Promise<Setting>;
+  
+  // Chain job operations
+  createChainJob(job: InsertChainJob): Promise<ChainJob>;
+  getChainJob(id: string): Promise<ChainJob | undefined>;
+  getAllChainJobs(): Promise<ChainJob[]>;
+  updateChainJobStatus(id: string, status: string, progress?: number, errorMessage?: string): Promise<void>;
+  updateChainJobPlan(id: string, planJson: string, segmentJobIds?: string[]): Promise<void>;
+  updateChainJobResults(id: string, finalVideoUrl: string, thumbnailUrl?: string, costDetails?: string): Promise<void>;
+  deleteChainJob(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -246,6 +255,65 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Chain job operations
+  async createChainJob(insertJob: InsertChainJob): Promise<ChainJob> {
+    const [job] = await db
+      .insert(chainJobs)
+      .values({
+        ...insertJob,
+        status: "queued",
+        progress: 0,
+      })
+      .returning();
+    return job;
+  }
+
+  async getChainJob(id: string): Promise<ChainJob | undefined> {
+    const [job] = await db.select().from(chainJobs).where(eq(chainJobs.id, id));
+    return job || undefined;
+  }
+
+  async getAllChainJobs(): Promise<ChainJob[]> {
+    const jobs = await db.select().from(chainJobs).orderBy(desc(chainJobs.createdAt));
+    return jobs;
+  }
+
+  async updateChainJobStatus(id: string, status: string, progress?: number, errorMessage?: string): Promise<void> {
+    await db.update(chainJobs)
+      .set({
+        status,
+        progress: progress ?? undefined,
+        errorMessage: errorMessage ?? undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(chainJobs.id, id));
+  }
+
+  async updateChainJobPlan(id: string, planJson: string, segmentJobIds?: string[]): Promise<void> {
+    await db.update(chainJobs)
+      .set({
+        planJson,
+        segmentJobIds: segmentJobIds ?? undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(chainJobs.id, id));
+  }
+
+  async updateChainJobResults(id: string, finalVideoUrl: string, thumbnailUrl?: string, costDetails?: string): Promise<void> {
+    await db.update(chainJobs)
+      .set({
+        finalVideoUrl,
+        thumbnailUrl: thumbnailUrl ?? undefined,
+        costDetails: costDetails ?? undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(chainJobs.id, id));
+  }
+
+  async deleteChainJob(id: string): Promise<void> {
+    await db.delete(chainJobs).where(eq(chainJobs.id, id));
   }
 }
 
